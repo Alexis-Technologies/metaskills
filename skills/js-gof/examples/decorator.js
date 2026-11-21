@@ -1,5 +1,3 @@
-'use strict';
-
 // Symbol key for metadata: invisible to JSON and Object.keys
 const META = Symbol('meta');
 

@@ -1,12 +1,16 @@
 ---
 name: npm-publish
-description: Prepare an npm package for publishing. Handles version bump, CHANGELOG update, typings check, test run, README refresh, package.json audit, and npm pack verification. Use when the user asks to prepare a release, bump version, publish a package, or do release prep.
+description: Prepare an @alexify package for publishing with pnpm. Handles version bump, CHANGELOG update, typings check, quality gates, README and docs refresh, package.json audit, and pnpm pack verification. Use when the user asks to prepare a release, bump version, publish a package, or do release prep.
 disable-model-invocation: true
 ---
 
+<!-- Adapted from metaskills v1.0.6 (skills/npm-publish) for the Alexis toolchain and release
+     process: pnpm instead of npm, the gates of prepublishOnly and CI, Keep a Changelog headings,
+     and a manual publish after the merge and the tag. -->
+
 # npm Publish Preparation
 
-Systematic workflow for preparing an npm package for a new release. Every step must pass before proceeding to the next.
+Systematic workflow for preparing an @alexify package for a new release. Every step must pass before proceeding to the next. The package manager is pnpm (pinned in `packageManager`); never use `npm` commands and never create `package-lock.json`.
 
 ## Step 0: Gather Release Intent
 
@@ -20,16 +24,16 @@ If the user already specified intent (e.g. "prepare 4.1.0 release"), skip the qu
 
 ## Step 1: Pre-flight Checks
 
-Run:
+The gates differ per package, so read them instead of assuming a list:
 
-```bash
-npm i             # install deps
-npm test          # must exit 0 (lint + types + tests)
-```
+1. Run `pnpm install --frozen-lockfile`
+2. Read `prepublishOnly` in `package.json` and run each of its commands
+3. Read `.github/workflows/ci.yml` and run the gates `prepublishOnly` does not cover (for example the docs build). Say which ones need tools or services that are not available here, and rely on CI for those
+4. Follow the release section of the project's `CLAUDE.md` when it has one; it wins over this skill
 
-Then in parallel: `npm outdated` and `npm audit` (report to user).
+Then in parallel: `pnpm outdated` and `pnpm audit` (report to user).
 
-If `npm test` fails, stop and fix issues before continuing.
+If any gate fails, stop and fix issues before continuing.
 
 ## Step 2: Version Bump
 
@@ -43,47 +47,54 @@ Compute the new version based on user intent and semver rules:
 - **prerelease**: `1.2.3` -> `1.2.4-<label>.0`, or `1.2.4-beta.0` -> `1.2.4-beta.1`
 - **Removing prerelease tag**: `4.0.3-prerelease` -> `4.0.3` (just strip the suffix)
 
-Update `"version"` in `package.json` by editing the file directly (not `npm version`: the changelog is managed manually).
+Update `"version"` in `package.json` by editing the file directly, not with `pnpm version`: the commit, tag and changelog are handled by hand in the steps below.
 
 ## Step 3: Update CHANGELOG.md
 
-The changelog uses:
+The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
-- **Sections**: `## [Unreleased]` at top; `## [Version] - YYYY-MM-DD` for releases (date in ISO 8601)
+- **Sections**: `## [Unreleased]` at top; `## [X.Y.Z] - YYYY-MM-DD` for releases (date in ISO 8601)
 - **Order**: newest first; every version gets an entry
-- **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`. Group same-type changes under each
-- **Entries**: bullet lists; past tense; capitalise first letter; human-readable, curated (no raw git diffs)
-- **Links**: footnote-style link block at bottom: `[unreleased]: ...`, `[version]: ...` (GitHub compare URLs)
-- **Principles**: changelog is for humans; omit empty sections; call out breaking changes and deprecations clearly
+- **Release body**: a short prose paragraph saying what the release is about, then subsections
+- **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`, plus `Tooling` and `Upgrading from X.Y` when they apply. Omit empty subsections
+- **Entries**: bullets starting with a **bold lead-in**, then the explanation; human-readable and curated (no raw git diffs); call out breaking changes clearly
+- **Links**: reference-style link block at the bottom: `[unreleased]: ...`, `[X.Y.Z]: ...`
 
 ### 3a: Detect changelog structure
 
 Read the full `CHANGELOG.md`. Identify:
 
 - The `[Unreleased]` section
-- The previous version heading (to derive the comparison base)
+- The previous release heading (to derive the comparison base)
 - The links block at the bottom of the file
-- The GitHub repo URL from the existing links
+- The GitHub repo URL from `package.json` `repository`
+
+Release tags are `vX.Y.Z`.
 
 ### 3b: Create the new version entry
 
-**Always** draft entries from `git log` since the last tag (fallback to `HEAD~20` if no tags):
+**Always** draft entries from `git log` since the previous release tag:
 
 ```bash
 git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --oneline
 ```
 
-Convert commits into changelog bullets: group by type (Added, Changed, Fixed, Removed, Deprecated, Security), past tense, capitalise. Merge with any existing `[Unreleased]` content if the user added manual entries.
+For the first release of the package there is no tag yet: draft from the whole history (`git log --oneline`).
 
-Create the new version section with today's date (ISO 8601):
+Commits follow Conventional Commits: map `feat` -> Added, `fix` -> Fixed, `refactor!`/`feat!`/`fix!` -> call out as breaking, `ci`/`chore` -> Tooling (only when user-visible). Merge with the existing `[Unreleased]` content.
+
+Turn `[Unreleased]` into the release and leave an empty `[Unreleased]` above it:
 
 ```markdown
-## [Unreleased][unreleased]
+## [Unreleased]
 
-## [NEW_VERSION][] - YYYY-MM-DD
+## [NEW_VERSION] - YYYY-MM-DD
 
-- Entry description
-- Another entry
+What the release is about, in one short paragraph.
+
+### Added
+
+- **Feature name.** What it does and why it matters.
 ```
 
 ### 3c: Update comparison links
@@ -95,30 +106,33 @@ At the bottom of `CHANGELOG.md`, update the `[unreleased]` link and add the new 
 [NEW_VERSION]: https://github.com/OWNER/REPO/compare/vPREVIOUS_VERSION...vNEW_VERSION
 ```
 
-Keep all existing links intact below.
+For the first release there is no previous version of this package: link it to `https://github.com/OWNER/REPO/releases/tag/vNEW_VERSION`.
+
+Keep all existing links intact.
 
 ## Step 4: TypeScript Declarations
 
 If `.d.ts` files exist:
 
-1. Run `npx tsc` (or the project's `types` script) — must pass with no errors
+1. Run the project's type gates (`check:dts`, `test:types`); they must pass with no errors
 2. Verify the `.d.ts` public API surface matches the actual exports:
-   - Read the main JS entry point's `module.exports` or `export` statements
+   - Read the main JS entry point's `module.exports`
    - Read the `.d.ts` file
    - Confirm every exported class, function, type, and method is declared
    - Confirm no private/internal fields leak into the declarations
-3. If the release includes API changes, update the `.d.ts` accordingly
+3. If the release includes API changes, update the `.d.ts` and its type tests accordingly
 
-## Step 5: README & License Review
+## Step 5: README, Docs & License Review
 
-**Update year** in `LICENSE` and `README.md` (copyright line) to the current year if changed.
+**Update the year** of the `Alexis Technologies` copyright line in `LICENSE` (e.g. `2026` -> `2026-2027`).
 
-Scan `README.md` for staleness:
+Scan for staleness:
 
-1. **Usage examples**: do they match the current API? Especially constructor options, method signatures
-2. **Badges**: do version badge URLs point to the correct package name?
-3. **Configuration tables**: do option names, types, and defaults match the source code?
-4. **API reference**: if the README has an API section, verify it against actual exports
+1. **README.md usage examples**: do they match the current API? Run them if in doubt
+2. **Badges**: do the URLs point to `@alexify/<name>` and the `Alexis-Technologies` repository?
+3. **docs/**: guide and API pages for anything the release changed. `pnpm run docs:build` must pass (dead links fail it)
+4. **Generated docs**: rerun their generators instead of editing the output by hand
+5. **SECURITY.md**: the supported-versions table on a major release
 
 Only edit if something is factually wrong or outdated. Don't rewrite style or add unsolicited content.
 
@@ -128,37 +142,32 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 
 Check these fields are correct:
 
-- `"main"` / `"module"` / `"exports"` — points to existing files
-- `"types"` — points to the `.d.ts` file
-- `"files"` — includes all necessary files, excludes test/config files; cross-check with `.npmignore` if present
-- `"engines"` — matches the CI matrix (`.github/workflows/`)
+- `"main"` / `"bin"` / `"exports"` — point to existing files; `exports` lists `types` first when it has them
+- `"types"` — points to the `.d.ts` file when the package has one
+- `"files"` — the explicit allowlist includes everything that ships and nothing else
+- `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
+- `"dependencies"` — absent unless the project's `CLAUDE.md` allows them
 - `"keywords"` — no typos, relevant terms
-- `"license"`, `"repository"`, `"homepage"` — valid
+- `"license"`, `"repository"`, `"homepage"`, `"bugs"`, `"publishConfig"` (`access: public`) — valid
 
 ### 6b: Dry-run pack
 
 ```bash
-npm pack --dry-run
+pnpm pack --dry-run
 ```
 
-Review the file list:
+Run `pnpm run check:pack` too when the project has it. Review the file list:
 
 - Source files are included
 - Type definitions are included
-- Test files, configs, CI files are excluded
+- Tests, docs, scripts, configs and CI files are excluded unless the package ships them on purpose
 - No unexpected large files
 
-Report the packed size to the user.
+Report the file count and the packed size to the user.
 
 ## Step 7: Final Verification
 
-Run the full test suite one more time after all edits:
-
-```bash
-npm test
-```
-
-Must exit 0. If it fails, fix and re-run.
+Run the gates of Step 1 one more time after all edits. They must exit 0. If one fails, fix and re-run.
 
 ## Step 8: Summary & Next Steps
 
@@ -175,17 +184,13 @@ Release preparation complete:
 
 Then list remaining manual steps:
 
-1. `git add -A && git commit -m "Release vX.Y.Z"` (or ask the user if they want you to commit)
-2. `git tag vX.Y.Z`
+1. `git add -A && git commit -m "chore(release): X.Y.Z"` on the release branch, then merge into `main` (or ask the user if they want you to commit)
+2. `git tag vX.Y.Z` on the commit of `main`
 3. `git push && git push --tags`
-4. `npm publish` (or `npm publish --tag <label>` for prereleases)
+4. `pnpm publish` (or `pnpm publish --tag <label>` for prereleases), or `pnpm run release` when the project has it; `prepublishOnly` re-runs the gates
 
-Do NOT run `npm publish` or `git push` automatically — always let the user do it or explicitly confirm.
+Do NOT run `pnpm publish`, `pnpm run release` or `git push` automatically — always let the user do it or explicitly confirm.
 
-## Step 9: Reinstall Dependencies
+## Step 9: Lockfile
 
-After all steps run to refresh package-lock.json:
-
-```bash
-npm i
-```
+Run `pnpm install` only if dependencies changed during the release; commit the updated `pnpm-lock.yaml` with the release. Never generate or commit `package-lock.json`.

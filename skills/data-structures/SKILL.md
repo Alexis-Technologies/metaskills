@@ -3,6 +3,9 @@ name: data-structures
 description: Implements custom JavaScript data structures: queues, deques, stacks, linked lists, cons lists, circular buffers, unrolled lists, tries, heaps, graphs, LRU caches, CRDTs, pools, structs. Use when building or choosing non-native collections, optimizing enqueue/dequeue, designing persistent lists, or when the user asks for data structures beyond Map/Set/Array/Object.
 ---
 
+<!-- Adapted from metaskills v1.0.6 (skills/data-structures): the G-Counter sums with a loop,
+     as js-conventions asks of library code. -->
+
 # Custom Data Structures (JavaScript)
 
 ## Complexity and code characteristics
@@ -477,7 +480,9 @@ class GCounter {
   }
 
   get value() {
-    return this.#counts.reduce((a, b) => a + b, 0);
+    let total = 0;
+    for (let i = 0; i < this.#counts.length; i++) total += this.#counts[i];
+    return total;
   }
 }
 ```

@@ -1,5 +1,3 @@
-'use strict';
-
 // Preferred: module cache makes module-level state a singleton on import
 const connections = new Map();
 

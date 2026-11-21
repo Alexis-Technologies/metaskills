@@ -1,8 +1,10 @@
 ---
 name: js-data-structures
 description: Choose and use native JavaScript collections for Big-O, readability, semantics, naming, stability, or testability. Use when working with Map, Object, Set, Array, WeakMap, WeakSet, TypedArray, or deciding among built-in collections. For custom queues, lists, heaps, tries, and related structures, use the data-structures skill.
-description: Implement or choose JavaScript data structures - object vs Map vs Set vs array vs typed array, lookup tables, membership, aliases, ring (circular) buffer, queue, deque, stack, linked list, tree, binary search tree, BTree, graph, and cache. Use whenever writing a class or module that stores, buffers, queues, or indexes items, or when choosing a collection type.
 ---
+
+<!-- Adapted from metaskills v1.0.6 (skills/js-data-structures): one description key in the
+     frontmatter (upstream has two), and the array-method rule of js-conventions. -->
 
 # Native Data Structures (JavaScript)
 
@@ -70,7 +72,7 @@ Choose a structure for the property you need to control — not only for speed.
 
 - Let the type state the intent: `Set` = unique membership; `Map` = keyed registry; `Array` = ordered sequence; plain `Object` = record/DTO
 - Prefer a named collection over encoding the same idea in ad-hoc flags, parallel arrays, or stringly keys
-- Use array methods (`.map`, `.filter`, `.reduce`) when they match the transform; use explicit loops when control flow or performance matters
+- Outside library code (`src/`), use array methods (`.map`, `.filter`, `.reduce`) when they match the transform; in `src/` and wherever control flow or performance matters, use explicit loops
 - Avoid over-abstracting: a small static `Array` allowlist is clearer than a `Set` used once
 
 **Naming:**

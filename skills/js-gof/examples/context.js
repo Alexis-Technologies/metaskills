@@ -1,5 +1,3 @@
-'use strict';
-
 const PERMISSIONS = {
   admin: ['read:balance', 'read:transactions', 'write:transactions'],
   user: ['read:balance'],

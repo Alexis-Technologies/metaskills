@@ -1,5 +1,3 @@
-'use strict';
-
 const createApi = (db, cache, logger) => ({
   async getUser(id) {
     const cached = cache.get(id);

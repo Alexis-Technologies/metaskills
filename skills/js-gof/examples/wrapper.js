@@ -1,5 +1,3 @@
-'use strict';
-
 const withLogging =
   (fn, label) =>
   (...args) => {

@@ -1,5 +1,3 @@
-'use strict';
-
 const fs = require('node:fs');
 
 const statistics = { bytes: 0, chunks: 0, events: {} };

@@ -47,7 +47,7 @@ const renderList = (items) => {
 
 ## ES module head and tail
 
-The CommonJS layout from SKILL.md, as an ES module:
+For a project that already uses ES modules, the layout from SKILL.md:
 
 ```js
 import fs from 'node:fs';
@@ -57,7 +57,7 @@ import { asText } from './text.js';
 import * as text from '../utils.js';
 const { stripAnsi, visibleWidth, wrapLine, wrapCodeLine, padEndVisible } = text;
 
-const MAX_WIDTH = 80;
+const MAX_WIDTH = 100;
 
 const formatValue = (value) => {
   const source = asText(value);

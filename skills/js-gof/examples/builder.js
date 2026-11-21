@@ -1,5 +1,3 @@
-'use strict';
-
 class QueryBuilder {
   #options;
 
@@ -28,11 +26,7 @@ class QueryBuilder {
   }
 }
 
-const query = new QueryBuilder('User')
-  .where({ active: true })
-  .order('name')
-  .limit(10)
-  .build();
+const query = new QueryBuilder('User').where({ active: true }).order('name').limit(10).build();
 
 // Alternatively: async constructor (`await new QueryBuilder`)
 // or declarative init with all steps in one structure:

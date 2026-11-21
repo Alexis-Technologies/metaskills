@@ -1,5 +1,3 @@
-'use strict';
-
 // Placeholder products: real ones implement storage and async iteration
 class FileStorage {
   constructor(fileName) {

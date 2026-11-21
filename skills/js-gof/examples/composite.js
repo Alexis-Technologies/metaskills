@@ -1,5 +1,3 @@
-'use strict';
-
 const calculateTotal = (order) => {
   const items = Array.isArray(order) ? order : Object.values(order);
   return items.reduce((sum, item) => {

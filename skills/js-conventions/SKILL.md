@@ -1,7 +1,11 @@
 ---
 name: js-conventions
-description: Metarhia JavaScript and TypeScript conventions, project lint setup, formatting, naming, object shape and hidden class rules, named intermediate variables, split-then-compose, contracts, module and export order, ternaries, lookup tables, dynamic dispatch, iteration, async/await, cognitive complexity, performance, and benchmarking. Apply automatically whenever writing, editing, refactoring, simplifying, optimizing, formatting, cleaning up, or reviewing .js, .mjs, .cjs, .ts, or .d.ts files, or when the user asks about code style or linting
+description: Alexis JavaScript and TypeScript conventions (Metarhia-derived, linted by oxlint and formatted by oxfmt), project lint setup, formatting, naming, object shape and hidden class rules, named intermediate variables, split-then-compose, contracts, module and export order, ternaries, lookup tables, dynamic dispatch, iteration, async/await, cognitive complexity, performance, and benchmarking. Apply automatically whenever writing, editing, refactoring, simplifying, optimizing, formatting, cleaning up, or reviewing .js, .mjs, .cjs, .ts, or .d.ts files, or when the user asks about code style or linting
 ---
+
+<!-- Adapted from metaskills v1.0.6 (skills/js-conventions) for the Alexis toolchain:
+     oxlint + oxfmt instead of ESLint + Prettier, pnpm instead of npm, 100 columns instead of 80,
+     no 'use strict', and loops in one pass instead of array iteration methods in src/. -->
 
 # JavaScript conventions
 
@@ -14,27 +18,22 @@ runtime.
 
 ## Preparations
 
-- Add these dev dependencies to `package.json` when missing:
-  `eslint-config-metarhia`, `eslint`, and `prettier`
-- Add these scripts to `package.json` when missing or update to following readable format:
-
-```json
-"lint": "eslint . && prettier --check \"**/*.{js,jsx,mjs,cjs,ts,tsx,json,md,mdx,yaml,yml}\"",
-"fix": "eslint . --fix && prettier --write \"**/*.{js,jsx,mjs,cjs,ts,tsx,json,md,mdx,yaml,yml}\""
-```
-
-The extension list groups JavaScript, TypeScript, data, docs, configs.
-
-- Run `npm t` before and after changing code with ai. Finish only when lint, format,
-  and test checks pass
-- Run `npm run fix` before fixing remaining lint or format issues by hand
+- Linting is oxlint (`.oxlintrc.json`) and formatting is oxfmt (`.oxfmtrc.json`, `.editorconfig`);
+  never add ESLint or Prettier
+- The package manager is pnpm (pinned in `packageManager`); never use `npm` commands or create
+  `package-lock.json`
+- Use the scripts of `package.json`: `pnpm lint`, `pnpm format`, `pnpm format:check`, `pnpm test`
+- Run `pnpm lint` and `pnpm test` before and after changing code with AI. Finish only when lint,
+  format, and test checks pass
+- Run `pnpm format` before fixing remaining issues by hand. Suppress a rule only for an intentional
+  construct, with a targeted `// oxlint-disable-next-line <rule>`
 - Preserve the existing module system, source and declaration file types, and
   package layout unless the task asks to change them
 - Resolve runtime packages from the registry (or the project's declared source of truth), not from sibling `file:` links in a gitignored lockfile that other machines will not have
 
 ## Formatting
 
-For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within 80 characters except URLs. Let Prettier and `eslint-config-metarhia` handle spacing, braces, and indentation.
+For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within 100 characters except URLs. Let oxfmt and `.editorconfig` handle spacing, braces, and indentation (2 spaces, LF).
 
 ## Naming
 
@@ -73,7 +72,8 @@ Order in the file and in the export list:
 5. exports (in the order they appear in the file)
 
 - Types go in a sibling `.d.ts`. Never JSDoc
-- `'use strict';` only in CommonJS (ES modules are strict already)
+- Alexis libraries are CommonJS: `require` and `module.exports`, no `import` / `export` in `.js` sources
+- Do not add `'use strict'`
 - Node builtins always use the `node:` prefix: `require('node:fs')`, not `require('fs')`
 - Packages: bare specifier, no extension
 - Relative paths always include the extension (`.js` / `.cjs` / `.mjs`); prefer `./dir/moduleName.js` over `./dir`
@@ -82,8 +82,6 @@ Order in the file and in the export list:
 - One blank line between Node builtins, npm packages, and project modules
 
 ```js
-'use strict';
-
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -91,7 +89,7 @@ const { asText } = require('./text.js');
 const text = require('../utils.js');
 const { stripAnsi, visibleWidth, wrapLine, wrapCodeLine, padEndVisible } = text;
 
-const MAX_WIDTH = 80;
+const MAX_WIDTH = 100;
 
 const formatValue = (value) => {
   const source = asText(value);
@@ -195,8 +193,8 @@ Choose iteration by data type, code layer, and whether the path is hot:
   - Library and system code (runtimes, parsers, protocols, I/O, hot paths): C-like `for (let i = 0; i < list.length; i++)` over arrays. Dynamic-key collections are `Map`s: `for...of` over `map.values()` or `map.keys()`; `for (const entry of map)` reading `entry[0]` / `entry[1]` only when both are needed. A plain object the code receives (options, headers) is walked with `const keys = Object.keys(obj)` and an index loop
   - Domain and application code: `for...of` over arrays and `Map`, `for...in` over plain data objects, for readability; `Object.values` outside hot paths
   - Both: `for...of` for `Set`, generators, streams, and code points of a string. Never `Object.entries`; never `Object.values` in hot or library code
-- Use `.map`, `.filter`, `.reduce` when they state the semantic
-- `.forEach` only when "do this for each item" is the semantic and the callback is self-contained. A callback that reads or writes outer variables (accumulators, flags, counters) is a loop instead
+- In library code (`src/`) use no array iteration methods (`.map`, `.filter`, `.some`, `.every`, `.find`, `.findIndex`, `.findLast`, `.reduce`, `.flatMap`, `.forEach`), cold paths included. Compute everything a collection gives in one pass with an early exit; never chain passes (`.map().join()`, `Array.from().map()`), and do not build an array only to iterate it
+- Tests, scripts, and benchmarks may use array iteration methods where they state the semantic. A `.forEach` callback that reads or writes outer variables (accumulators, flags, counters) is a loop instead
 - Spread an iterable only when it really is one (`[...set]`, `[...string]` for code points) and `Array.from` does not read better
 - Keep escaping allocations out of hot loops: spread, rest, closures created per iteration, and arrays or objects that outlive the call; move reusable callbacks outside loops. Small result objects that do not leave an inlined function (`{ text, end }` from a span reader) are removed by escape analysis and are fine. `try` / `catch` does not deoptimize: place it where the error handling belongs
 - For measured allocation concerns and runtime-specific exceptions, read

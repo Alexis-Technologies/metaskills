@@ -1,5 +1,3 @@
-'use strict';
-
 const createUser = (name, role) => ({ name, role, createdAt: Date.now() });
 const createAdmin = (name) => createUser(name, 'admin');
 

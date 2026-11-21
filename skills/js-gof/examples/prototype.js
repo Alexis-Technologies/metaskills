@@ -1,5 +1,3 @@
-'use strict';
-
 // Literal prototype + clone
 const proto = { type: 'widget', color: 'blue' };
 const cloneLiteral = () => ({ ...proto });

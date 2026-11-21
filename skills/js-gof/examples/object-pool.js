@@ -1,5 +1,3 @@
-'use strict';
-
 class Pool {
   #available = [];
   #factory = null;
