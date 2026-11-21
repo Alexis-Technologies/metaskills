@@ -9,7 +9,13 @@
     "node-modules-packages",
     "node-tooling-testing"
   ],
-  "design": ["js-gof"],
+  "design": [
+    "js-gof",
+    "js-multiparadigm",
+    "js-solid-grasp",
+    "node-architecture-styles",
+    "node-layered-architecture"
+  ],
   "library": ["data-structures", "js-data-structures", "metautil-data-structures", "npm-publish"],
   "runtime": [
     "js-async-concurrency",
