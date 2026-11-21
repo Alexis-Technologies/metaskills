@@ -1,0 +1,81 @@
+{
+  "name": "@alexify/metaskills",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Agent skills for the Alexis JavaScript stack: reusable instructions for Claude Code, Cursor, Windsurf, VS Code and Gemini, linked into a project by one command",
+  "license": "MIT",
+  "author": "Alex Dolid <dolid.sasha@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alexis-Technologies/metaskills.git"
+  },
+  "homepage": "https://github.com/Alexis-Technologies/metaskills#readme",
+  "bugs": {
+    "url": "https://github.com/Alexis-Technologies/metaskills/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "bin": {
+    "metaskills": "./bin/metaskills.js"
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "files": [
+    "bin",
+    "src",
+    "skills",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test tests/unit/*.test.js",
+    "test:coverage": "c8 --all --include 'src/**' --check-coverage --lines 98 --statements 98 --branches 90 --functions 100 --reporter text --reporter lcov node --test tests/unit/*.test.js",
+    "lint": "oxlint --report-unused-disable-directives-severity=error bin src tests scripts evals skills/js-gof/examples",
+    "format": "oxfmt bin src tests scripts evals skills/js-gof/examples",
+    "format:check": "oxfmt --check bin src tests scripts evals skills/js-gof/examples",
+    "size": "node scripts/size.js",
+    "check:pack": "node scripts/check-pack.js",
+    "catalog": "node scripts/catalog.js",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "evals": "node evals/run.js",
+    "prepublishOnly": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run size --check && pnpm run check:pack && pnpm run catalog --check"
+  },
+  "keywords": [
+    "skills",
+    "agent-skills",
+    "ai",
+    "llm",
+    "agent",
+    "claude",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "vscode",
+    "gemini",
+    "javascript",
+    "nodejs",
+    "conventions",
+    "metarhia"
+  ],
+  "devDependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "c8": "^12.0.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.75.0",
+    "vitepress": "^1.6.4"
+  }
+}
