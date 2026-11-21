@@ -18,7 +18,7 @@
   },
   "packageManager": "pnpm@10.34.5",
   "bin": {
-    "alexify-metaskills": "./bin/alexify-metaskills.js"
+    "alexiskills": "./bin/alexiskills.js"
   },
   "exports": {
     "./package.json": "./package.json"

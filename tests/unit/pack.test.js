@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const { packProblems } = require('../../scripts/check-pack.js');
 const pkg = require('../../package.json');
 
-const MANIFEST = { bin: { 'alexify-metaskills': './bin/alexify-metaskills.js' } };
+const MANIFEST = { bin: { alexiskills: './bin/alexiskills.js' } };
 const SKILLS = ['alpha'];
 const FILES = [
   'package.json',
@@ -12,7 +12,7 @@ const FILES = [
   'CHANGELOG.md',
   'LICENSE',
   'SECURITY.md',
-  'bin/alexify-metaskills.js',
+  'bin/alexiskills.js',
   'src/link.js',
   'src/packs.json',
   'skills/alpha/SKILL.md',
@@ -21,7 +21,7 @@ const FILES = [
 
 test('the command cannot be confused with the metaskills of Metarhia', () => {
   // pnpm and npm drop the scope of a bin name: `@alexify/metaskills` would install `metaskills`.
-  assert.deepStrictEqual(Object.keys(pkg.bin), ['alexify-metaskills']);
+  assert.deepStrictEqual(Object.keys(pkg.bin), ['alexiskills']);
 });
 
 test('packProblems passes a complete tarball', () => {
@@ -29,7 +29,7 @@ test('packProblems passes a complete tarball', () => {
 });
 
 test('packProblems reports a missing bin, document or skill', () => {
-  const bin = 'bin/alexify-metaskills.js';
+  const bin = 'bin/alexiskills.js';
   const missing = [bin, 'LICENSE', 'src/packs.json', 'skills/alpha/SKILL.md'];
   const files = FILES.filter((file) => !missing.includes(file));
   const problems = packProblems(files, MANIFEST, SKILLS);

@@ -24,24 +24,24 @@ Then, in your project:
 
 ```bash
 pnpm add -D /path/to/metaskills/alexify-metaskills-1.0.0.tgz
-pnpm exec alexify-metaskills claude
+pnpm exec alexiskills claude
 ```
 
-The command is `alexify-metaskills`, so it cannot clash with the `metaskills` command of
+The command is `alexiskills`, so it cannot clash with the `metaskills` command of
 `metarhia/metaskills`. It symlinks the skills directory of the IDE to the installed package and adds
 the link to `.gitignore` and `.npmignore`. A directory that already holds your own skills is left
 unchanged.
 
-| IDE         | Command                          | Target directory    |
-| ----------- | -------------------------------- | ------------------- |
-| Autodetect  | `alexify-metaskills`             | Detected, or a menu |
-| Cursor      | `alexify-metaskills cursor`      | `.cursor/skills`    |
-| Claude Code | `alexify-metaskills claude`      | `.claude/skills`    |
-| Windsurf    | `alexify-metaskills windsurf`    | `.windsurf/skills`  |
-| VS Code     | `alexify-metaskills vscode`      | `.github/skills`    |
-| Gemini      | `alexify-metaskills gemini`      | `.gemini/skills`    |
-| Antigravity | `alexify-metaskills antigravity` | `.agents/skills`    |
-| All         | `alexify-metaskills all`         | All of the above    |
+| IDE         | Command                   | Target directory    |
+| ----------- | ------------------------- | ------------------- |
+| Autodetect  | `alexiskills`             | Detected, or a menu |
+| Cursor      | `alexiskills cursor`      | `.cursor/skills`    |
+| Claude Code | `alexiskills claude`      | `.claude/skills`    |
+| Windsurf    | `alexiskills windsurf`    | `.windsurf/skills`  |
+| VS Code     | `alexiskills vscode`      | `.github/skills`    |
+| Gemini      | `alexiskills gemini`      | `.gemini/skills`    |
+| Antigravity | `alexiskills antigravity` | `.agents/skills`    |
+| All         | `alexiskills all`         | All of the above    |
 
 ## Skills
 
@@ -49,7 +49,7 @@ unchanged.
 links `core` and the packs it names, which keeps the skill descriptions within an agent's context:
 
 ```bash
-pnpm exec alexify-metaskills claude --pack backend,security
+pnpm exec alexiskills claude --pack backend,security
 ```
 
 | Pack       | Skills | Covers                                                                |

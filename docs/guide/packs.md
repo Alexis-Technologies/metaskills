@@ -10,7 +10,7 @@ of the context window. Descriptions over that budget are dropped, starting with 
 skills. A project that does not need all 34 skills links a part of them.
 
 ```bash
-pnpm exec alexify-metaskills claude --pack backend,security
+pnpm exec alexiskills claude --pack backend,security
 ```
 
 `core` is always included. `--pack` takes a comma-separated list, can repeat, and also reads as
@@ -69,7 +69,7 @@ a pack appear only after the next run. Keep the command in `package.json` so eve
 ```json
 {
   "scripts": {
-    "skills": "alexify-metaskills claude --pack backend,security"
+    "skills": "alexiskills claude --pack backend,security"
   }
 }
 ```

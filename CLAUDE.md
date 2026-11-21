@@ -39,7 +39,7 @@ There is no build step. What is in `skills/`, `src/` and `bin/` is what ships.
 ## Repository layout
 
 ```text
-bin/alexify-metaskills.js  the thin CLI entry
+bin/alexiskills.js         the thin CLI entry
 src/link.js                linking, packs, IDE detection, the menu and run()
 src/packs.json             which pack each skill belongs to
 skills/                    the source of truth for every skill
@@ -92,7 +92,7 @@ because a pack may leave the other skill out.
 - `src/` uses no array iteration methods; oxlint enforces it. `src/` does not use `console` either:
   `run()` takes its streams.
 - Node.js 18 is the engines floor, so `src/` and `bin/` avoid newer APIs such as `toSorted`.
-- The command is `alexify-metaskills`. pnpm and npm drop the scope of a bin name, so a bin called
+- The command is `alexiskills`. pnpm and npm drop the scope of a bin name, so a bin called
   `@alexify/metaskills` would install a `metaskills` command and clash with the upstream package.
 - The CLI never installs a package. The upstream one ran `npm install metaskills`, which would
   install the upstream package here.
