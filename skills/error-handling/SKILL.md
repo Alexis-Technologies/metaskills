@@ -134,7 +134,9 @@ export default fp(async (fastify) => {
       const message = SAFE_MESSAGES.get(error.code) ?? error.message;
       return sendError(reply, status, { code: error.code, message });
     }
-    const isFramework = `${error.code}`.startsWith('FST_') && error.statusCode < 500;
+    // 503 keeps load shedding visible: @fastify/under-pressure raises it with Retry-After
+    const isSafeStatus = error.statusCode < 500 || error.statusCode === 503;
+    const isFramework = `${error.code}`.startsWith('FST_') && isSafeStatus;
     if (isFramework) {
       return sendError(reply, error.statusCode, { code: error.code, message: error.message });
     }
