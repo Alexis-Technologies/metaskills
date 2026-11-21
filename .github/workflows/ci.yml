@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  # A feature branch is checked on every push, with no pull request.
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+  # By hand, on any branch, once this file is on the default branch.
+  workflow_dispatch:
+
+# Read-only by default: nothing here writes to the repository.
+permissions:
+  contents: read
+
+# A new push to the same branch supersedes the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # oxlint/oxfmt native bindings need Node >= 20.19, so lint and format run
+  # once on Node 22 rather than across the engines matrix.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      # Every SKILL.md fits the context budgets of scripts/size-budgets.json.
+      - run: pnpm run size --check
+      # The tarball holds the CLI, the documents and every skill, nothing else.
+      - run: pnpm run check:pack
+      # The catalog of the docs and llms.txt match the frontmatter of skills/.
+      - run: pnpm run catalog --check
+
+  # The engines floor is Node 18. `node --test tests/unit/*.test.js` relies on
+  # the shell to expand the glob before Node 21, which cmd.exe does not do, so
+  # Windows runs only on the Node versions that expand test globs themselves.
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18, 20, 22, 24, 26]
+        exclude:
+          - os: windows-latest
+            node-version: 18
+          - os: windows-latest
+            node-version: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `shell: bash` runs the step with `-o pipefail`, so the c8 thresholds
+      # fail the job through the pipe; the default shell takes tee's status.
+      - run: pnpm run test:coverage | tee coverage.txt
+        shell: bash
+      - name: Coverage summary
+        run: |
+          { echo '### Coverage'; echo '```'; grep '|' coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          retention-days: 14
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # A broken docs build (including dead links) should fail the PR, not the
+      # deploy that follows it.
+      - run: pnpm run docs:build
+
+  # Single aggregate check for branch protection: require only "ci-success"
+  # instead of naming every matrix leg (which silently un-requires new legs).
+  ci-success:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint, test, coverage, docs]
+    if: always()
+    steps:
+      - name: Fail when any needed job failed, was cancelled or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - run: echo "All CI jobs passed"
