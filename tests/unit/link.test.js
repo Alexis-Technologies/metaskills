@@ -1,14 +1,12 @@
-'use strict';
-
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { ensureSkillLinks, listSkills } = require('../scripts/link-ide.js');
+const { ensureSkillLinks, listSkills } = require('../../src/link.js');
 
-const packageRoot = path.resolve(__dirname, '..');
+const packageRoot = path.resolve(__dirname, '../..');
 const TARGET_DIR = '.cursor/skills';
 
 const createFixture = (names) => {
@@ -31,8 +29,9 @@ const resolveLink = (linkPath) => {
   return path.resolve(path.dirname(linkPath), target);
 };
 
-test('package root has scripts/ and package.json', () => {
-  assert.ok(fs.existsSync(path.join(packageRoot, 'scripts')));
+test('package root has bin/, src/ and package.json', () => {
+  assert.ok(fs.existsSync(path.join(packageRoot, 'bin')));
+  assert.ok(fs.existsSync(path.join(packageRoot, 'src')));
   assert.ok(fs.existsSync(path.join(packageRoot, 'package.json')));
 });
 

@@ -1,32 +1,28 @@
-#!/usr/bin/env node
-'use strict';
-
-const { execSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
-const PROJECT_DIR = process.cwd();
-const SKILLS_DIR = path.join(PROJECT_DIR, 'node_modules/metaskills/skills');
+const PACKAGE_NAME = '@alexify/metaskills';
+// A stable path under pnpm too: the real one in .pnpm/ changes with every version.
+const PACKAGE_SKILLS = path.join('node_modules', '@alexify', 'metaskills', 'skills');
+const IDE_TARGETS = new Map([
+  ['cursor', '.cursor'],
+  ['claude', '.claude'],
+  ['windsurf', '.windsurf'],
+  ['vscode', '.github'],
+  ['gemini', '.gemini'],
+  ['antigravity', '.agents'],
+]);
+// These directories exist for other reasons, so only their skills/ marks the IDE as used.
+const SHARED_BASES = new Set(['.github', '.agents']);
 
-const IDE_TARGETS = {
-  cursor: '.cursor',
-  claude: '.claude',
-  windsurf: '.windsurf',
-  vscode: '.github',
-  gemini: '.gemini',
-  antigravity: '.agents',
-};
-
-const detectTargetDirs = () => {
+const detectTargetDirs = (root) => {
   const found = [];
-  for (const base of Object.values(IDE_TARGETS)) {
-    const basePath = path.join(PROJECT_DIR, base);
+  for (const base of IDE_TARGETS.values()) {
+    const basePath = path.join(root, base);
     if (!fs.existsSync(basePath)) continue;
-    if (base === '.github' || base === '.agents') {
-      const skillsPath = path.join(basePath, 'skills');
-      if (!fs.existsSync(skillsPath)) continue;
-    }
+    const hasSkills = fs.existsSync(path.join(basePath, 'skills'));
+    if (SHARED_BASES.has(base) && !hasSkills) continue;
     found.push(`${base}/skills`);
   }
   return found;
@@ -41,7 +37,8 @@ const listSkills = (source) => {
     const manifest = path.join(source, entry.name, 'SKILL.md');
     if (fs.existsSync(manifest)) names.push(entry.name);
   }
-  return names.sort();
+  names.sort();
+  return names;
 };
 
 const isInside = (target, dir) => {
@@ -138,8 +135,8 @@ const replaceDirectory = (linkPath, sourcePath, targetDir) => {
   };
 };
 
-const ensureSkillLinks = (targetDir, dirs = {}) => {
-  const { root = PROJECT_DIR, source = SKILLS_DIR } = dirs;
+const ensureSkillLinks = (targetDir, dirs) => {
+  const { root, source } = dirs;
   const linkPath = path.join(root, targetDir);
   const sourcePath = path.resolve(source);
   fs.mkdirSync(path.dirname(linkPath), { recursive: true });
@@ -155,101 +152,106 @@ const addToIgnoreFile = (filePath, entry) => {
   const lines = content.split('\n');
   if (lines.includes(entry)) return;
   const isTerminated = content === '' || content.endsWith('\n');
-  const sep = isTerminated ? '' : '\n';
-  const updated = `${content}${sep}${entry}\n`;
-  fs.writeFileSync(filePath, updated);
+  const separator = isTerminated ? '' : '\n';
+  fs.writeFileSync(filePath, `${content}${separator}${entry}\n`);
 };
 
-const ensureIgnored = (targetDirs) => {
-  const gitignore = path.join(PROJECT_DIR, '.gitignore');
-  const npmignore = path.join(PROJECT_DIR, '.npmignore');
+const ensureIgnored = (targetDir, root) => {
+  addToIgnoreFile(path.join(root, '.gitignore'), targetDir);
+  addToIgnoreFile(path.join(root, '.npmignore'), targetDir);
+};
+
+const linkTargets = (targetDirs, context) => {
+  const { root, source, log, fail } = context;
   for (let i = 0; i < targetDirs.length; i++) {
-    const entry = targetDirs[i];
-    addToIgnoreFile(gitignore, entry);
-    addToIgnoreFile(npmignore, entry);
-  }
-};
-
-const ensureInstalled = () => {
-  const pkgPath = path.join(PROJECT_DIR, 'package.json');
-  if (!fs.existsSync(pkgPath)) return;
-  const localPkg = path.join(PROJECT_DIR, 'node_modules', 'metaskills');
-  if (fs.existsSync(localPkg)) return;
-  console.log('Installing metaskills as dev dependency...');
-  execSync('npm install metaskills --save-dev', {
-    cwd: PROJECT_DIR,
-    stdio: 'inherit',
-  });
-};
-
-const main = () => {
-  ensureInstalled();
-
-  if (!fs.existsSync(SKILLS_DIR)) {
-    console.error('metaskills: node_modules/metaskills/skills not found.');
-    process.exit(1);
-  }
-  const source = SKILLS_DIR;
-
-  const ide = (process.argv[2] || process.env.LINK_IDE || '').toLowerCase();
-  const ideNames = Object.keys(IDE_TARGETS);
-
-  const runLink = (targetDir) => {
+    const targetDir = targetDirs[i];
     try {
-      const result = ensureSkillLinks(targetDir, { source });
-      if (result.skipped.length === 0) ensureIgnored([targetDir]);
-      console.log(result.message);
+      const result = ensureSkillLinks(targetDir, { root, source });
+      if (result.skipped.length === 0) ensureIgnored(targetDir, root);
+      log(result.message);
     } catch (error) {
-      console.error(`Failed to link ${targetDir}:`, error.message);
-      process.exit(1);
+      fail(`Failed to link ${targetDir}: ${error.message}`);
+      return 1;
     }
-  };
-
-  const doRunLink = (selected) => {
-    const toTarget = (base) => `${base}/skills`;
-    const dirsToLink = [];
-    if (selected === 'all') {
-      dirsToLink.push(...Object.values(IDE_TARGETS).map(toTarget));
-    } else if (IDE_TARGETS[selected]) {
-      dirsToLink.push(toTarget(IDE_TARGETS[selected]));
-    }
-
-    if (dirsToLink.length === 0) {
-      console.error(`Unknown ide: ${selected}`);
-      process.exit(1);
-    }
-
-    for (const targetDir of dirsToLink) runLink(targetDir);
-  };
-
-  if (ide) return void doRunLink(ide);
-
-  const detectedDirs = detectTargetDirs();
-  if (detectedDirs.length > 0) {
-    for (const targetDir of detectedDirs) runLink(targetDir);
-    return;
   }
-
-  const menu = ideNames.map((name, i) => `${i + 1}) ${name}`).join(' ');
-  const allIdx = ideNames.length + 1;
-  console.log(`\nSelect IDE or AI Agent: ${menu} ${allIdx}) all\n`);
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  rl.question('> ', (answer) => {
-    rl.close();
-    const n = parseInt(answer, 10);
-    if (n >= 1 && n <= allIdx) {
-      const selected = n === allIdx ? 'all' : ideNames[n - 1];
-      doRunLink(selected);
-    } else {
-      console.error('Invalid choice');
-      process.exit(1);
-    }
-  });
+  return 0;
 };
 
-if (require.main === module) main();
+const selectTargets = (ide) => {
+  const targets = [];
+  if (ide === 'all') {
+    for (const base of IDE_TARGETS.values()) targets.push(`${base}/skills`);
+  } else if (IDE_TARGETS.has(ide)) {
+    targets.push(`${IDE_TARGETS.get(ide)}/skills`);
+  }
+  return targets;
+};
 
-module.exports = { ensureSkillLinks, listSkills };
+const linkIde = (ide, context) => {
+  const targets = selectTargets(ide);
+  if (targets.length > 0) return linkTargets(targets, context);
+  context.fail(`Unknown ide: ${ide}`);
+  return 1;
+};
+
+const menuText = () => {
+  let items = '';
+  let index = 1;
+  for (const name of IDE_TARGETS.keys()) {
+    items += `${index}) ${name} `;
+    index++;
+  }
+  return `\nSelect IDE or AI Agent: ${items}${index}) all\n`;
+};
+
+const askChoice = (input, output) =>
+  new Promise((resolve) => {
+    const rl = readline.createInterface({ input, output });
+    let answer = '';
+    rl.once('line', (line) => {
+      answer = line;
+      rl.close();
+    });
+    rl.once('close', () => resolve(answer));
+    rl.setPrompt('> ');
+    rl.prompt();
+  });
+
+const ideByChoice = (answer) => {
+  const choice = Number(answer.trim());
+  if (choice === IDE_TARGETS.size + 1) return 'all';
+  let index = 1;
+  for (const name of IDE_TARGETS.keys()) {
+    if (index === choice) return name;
+    index++;
+  }
+  return '';
+};
+
+const run = async (options) => {
+  const { args, env, root, input, output, errorOutput } = options;
+  const log = (message) => {
+    output.write(`${message}\n`);
+  };
+  const fail = (message) => {
+    errorOutput.write(`${message}\n`);
+  };
+  const source = path.join(root, PACKAGE_SKILLS);
+  if (!fs.existsSync(source)) {
+    fail(`metaskills: ${PACKAGE_NAME} is not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
+    return 1;
+  }
+  const context = { root, source, log, fail };
+  const ide = (args[0] || env.LINK_IDE || '').toLowerCase();
+  if (ide) return linkIde(ide, context);
+  const detected = detectTargetDirs(root);
+  if (detected.length > 0) return linkTargets(detected, context);
+  log(menuText());
+  const answer = await askChoice(input, output);
+  const selected = ideByChoice(answer);
+  if (selected) return linkIde(selected, context);
+  fail('Invalid choice');
+  return 1;
+};
+
+module.exports = { ensureSkillLinks, listSkills, run };

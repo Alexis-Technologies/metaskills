@@ -1,5 +1,3 @@
-'use strict';
-
 // skill: must be invoked before the first file edit
 // noSkill: must not be invoked at all
 // read: a Read call path must contain this fragment
@@ -16,8 +14,8 @@ const CASES = [
     skill: 'js-conventions',
     files: {
       'src/headers.js': {
-        require: [/'use strict'/, /Object\.keys/],
-        forbid: [/Object\.entries/, DESTRUCTURING, /\.forEach\(/],
+        require: [/Object\.keys/],
+        forbid: [/'use strict'/, /Object\.entries/, DESTRUCTURING, /\.forEach\(/],
       },
     },
   },

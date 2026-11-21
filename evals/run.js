@@ -1,11 +1,9 @@
-'use strict';
-
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { ensureSkillLinks } = require('../scripts/link-ide.js');
+const { ensureSkillLinks } = require('../src/link.js');
 const { CASES } = require('./cases.js');
 
 const SKILLS_DIR = path.resolve(__dirname, '../skills');

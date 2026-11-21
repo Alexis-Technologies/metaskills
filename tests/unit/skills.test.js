@@ -1,13 +1,11 @@
-'use strict';
-
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { listSkills } = require('../scripts/link-ide.js');
+const { listSkills } = require('../../src/link.js');
 
-const SKILLS_DIR = path.resolve(__dirname, '../skills');
+const SKILLS_DIR = path.resolve(__dirname, '../../skills');
 
 // Agent Skills spec: name up to 64 chars of [a-z0-9-], description up to 1024
 const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
