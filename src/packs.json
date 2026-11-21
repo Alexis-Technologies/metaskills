@@ -33,6 +33,6 @@
     "node-http-server",
     "node-scaling-highload"
   ],
-  "security": [],
+  "security": ["node-access-control", "node-crypto-auth", "node-security"],
   "realtime": []
 }
