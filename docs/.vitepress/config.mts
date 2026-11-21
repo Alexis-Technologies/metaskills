@@ -43,6 +43,7 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Getting Started', link: '/guide/getting-started' },
+          { text: 'Packs', link: '/guide/packs' },
           { text: 'Skill format', link: '/guide/skill-format' },
           { text: 'Upstream', link: '/guide/upstream' },
         ],

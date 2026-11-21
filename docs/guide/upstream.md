@@ -27,4 +27,20 @@ git -C /path/to/metarhia/metaskills diff ab13efe origin/main -- skills scripts e
 ```
 
 Apply what is worth taking by hand, in its own commit, keeping the Alexis adaptations. Then update
-the base version and commit in `CLAUDE.md`, this page and `CHANGELOG.md`.
+the base version and commit in `CLAUDE.md`, this page and `CHANGELOG.md`. `error-handling` is no
+longer a copy of upstream, so port changes to it by meaning.
+
+## Course-based skills
+
+27 skills were adapted from a local snapshot of 31 course-based skills, taken on 2026-11-20. It has
+no git history, so this SHA-256 over its sorted file hashes identifies it:
+
+```text
+d2e933cbcef5463ec6ca75e8176d02ded854592022ef0a038f6fe22c15496122
+```
+
+- **Merged:** `node-error-handling` into `error-handling`, and `js-v8-optimization` into
+  `js-conventions/performance.md`.
+- **Rewritten:** `metarhia-libraries` as `alexis-libraries`.
+- **Left out:** `metarhia-impress-app`, since Alexis does not run Impress, and
+  `node-native-addons-wasm`, since Alexis has no native code.

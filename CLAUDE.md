@@ -13,8 +13,8 @@ were copied, there is no GitHub fork, no shared git history and no `upstream` re
 unless the maintainer asks for that step. `package.json` has `private: false`, so nothing else
 stops a publish.
 
-**The course-based skills are not imported.** Do not add them without a decision from the
-maintainer: this repository is public, so a push publishes them.
+**The course-based skills are imported and adapted.** This repository is public, so a push publishes
+them: push only when the maintainer asks.
 
 ## Commands
 
@@ -40,24 +40,38 @@ There is no build step. What is in `skills/`, `src/` and `bin/` is what ships.
 
 ```text
 bin/alexify-metaskills.js  the thin CLI entry
-src/link.js           linking, IDE detection, the menu and run()
-skills/               the source of truth for every skill
-tests/unit/           link, cli, skills, size and pack tests
-evals/                agent evals from upstream, outside CI
-scripts/              frontmatter, size, check-pack and catalog
-docs/                 the VitePress site
+src/link.js                linking, packs, IDE detection, the menu and run()
+src/packs.json             which pack each skill belongs to
+skills/                    the source of truth for every skill
+tests/unit/                link, cli, skills, size and pack tests
+evals/                     agent evals, outside CI
+scripts/                   frontmatter, size, check-pack and catalog
+docs/                      the VitePress site
 ```
 
 ## Skills
 
-`skills/` holds seven skills from upstream v1.0.6:
+`skills/` holds 34 skills in seven packs, listed in `src/packs.json`. Every skill is in exactly one
+pack, and `core` is always linked.
 
-- **Adapted to the Alexis toolchain:** `js-conventions` (oxlint, oxfmt, pnpm, 100 columns, CommonJS
-  without `'use strict'`, one-pass loops in `src/`), `npm-publish` (pnpm and the Alexis release
-  process, with the gates read from the project), `js-gof` (examples without `'use strict'`),
-  `js-data-structures` (one `description` key, the array-method rule) and `data-structures` (a loop
-  instead of `reduce`). Each says so in a comment under its frontmatter.
-- **Verbatim:** `error-handling` and `metautil-data-structures`.
+- **From upstream v1.0.6, adapted to the Alexis toolchain:** `js-conventions`, `npm-publish`,
+  `js-gof`, `js-data-structures` and `data-structures`. Each says so in a comment under its
+  frontmatter. `metautil-data-structures` differs from upstream only in its description.
+- **Rewritten:** `error-handling`, from upstream and the deeper course material.
+  `js-conventions/performance.md` also took the V8 material.
+- **Adapted from the course-based skills:** the other 27. `docs/guide/upstream.md` records the
+  snapshot and what was left out.
+
+Skills follow two profiles, and the project's own configuration wins over both:
+
+- **Library** (`@alexify/*`): CommonJS, handwritten `.d.ts`, `node:test` with c8, no runtime
+  dependencies.
+- **App** (`auth8` is the reference): ESM, TypeScript, Vitest, Onion + DDD, a DAL over the native
+  MongoDB driver, Fastify.
+
+Both use oxlint and oxfmt, and neither uses array iteration methods in `src/`.
+`@alexify/metaschema` is the single source of truth for schemas. Documents carry the system fields
+`v` and `rev`.
 
 This repository has **no tracked `.claude/` directory** and no symlinks to its own skills, so an
 agent does not load a draft as instructions while editing it. Read them directly instead:
@@ -67,7 +81,9 @@ agent does not load a draft as instructions while editing it. Read them directly
 
 A local `.claude/launch.json` for the docs preview is git-ignored.
 
-After changing a skill, run `pnpm catalog`, `pnpm test` and `pnpm run size --check`.
+After changing a skill, run `pnpm catalog`, `pnpm test` and `pnpm run size --check`. A new skill also
+needs a place in `src/packs.json`. Skills refer to each other by name, never by a relative link,
+because a pack may leave the other skill out.
 
 ## Conventions
 
@@ -76,6 +92,8 @@ After changing a skill, run `pnpm catalog`, `pnpm test` and `pnpm run size --che
 - `src/` uses no array iteration methods; oxlint enforces it. `src/` does not use `console` either:
   `run()` takes its streams.
 - Node.js 18 is the engines floor, so `src/` and `bin/` avoid newer APIs such as `toSorted`.
+- The command is `alexify-metaskills`. pnpm and npm drop the scope of a bin name, so a bin called
+  `@alexify/metaskills` would install a `metaskills` command and clash with the upstream package.
 - The CLI never installs a package. The upstream one ran `npm install metaskills`, which would
   install the upstream package here.
 - The skills path stays `node_modules/@alexify/metaskills/skills`. Do not derive it from
@@ -112,3 +130,4 @@ git -C /path/to/metarhia/metaskills diff ab13efe origin/main -- skills scripts e
 ```
 
 Then update the base version and commit here, in `docs/guide/upstream.md` and in `CHANGELOG.md`.
+`error-handling` is no longer a copy of upstream, so port changes to it by meaning.

@@ -130,7 +130,7 @@ test('the pack list has the known packs and each skill exactly once', () => {
   assert.deepStrictEqual(Object.keys(packs), PACK_NAMES);
   const seen = new Set();
   for (const pack of PACK_NAMES) {
-    assert.ok(packs[pack].length > 0 || pack !== 'core', 'core must not be empty');
+    assert.ok(packs[pack].length > 0, `${pack} is empty`);
     for (const skill of packs[pack]) {
       assert.ok(names.includes(skill), `${pack} lists a missing skill: ${skill}`);
       assert.ok(!seen.has(skill), `${skill} is in two packs`);

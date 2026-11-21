@@ -45,5 +45,7 @@ npm drop the scope of a bin name, and a plain `metaskills` would clash with `met
 
 A target that already holds your own skills is left unchanged and reported as skipped.
 
+To link only part of the skills, see [Packs](/guide/packs).
+
 If the package is missing, the command prints how to install it and exits with code 1. It never
 installs anything by itself.

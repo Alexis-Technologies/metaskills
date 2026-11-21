@@ -15,6 +15,12 @@ not published yet.
 
 - **Seven base skills.** `js-conventions`, `js-data-structures`, `data-structures`,
   `metautil-data-structures`, `js-gof`, `error-handling` and `npm-publish`.
+- **27 skills for the Alexis stack.** Runtime and async, architecture, data access, HTTP, security,
+  realtime, tooling, and `alexis-libraries`, a guide to the `@alexify/*` packages. They are adapted
+  from course-based skills to Fastify, a DAL over the native MongoDB driver, `@alexify/metaschema`
+  as the single source of schemas, oxlint and oxfmt.
+- **Skill packs.** `alexify-metaskills claude --pack backend,security` links `core` and the chosen
+  packs instead of all 34 skills, so their descriptions fit an agent's context.
 - **Repository gates.** oxlint, oxfmt, `node:test` with c8, context budgets for skills, a tarball
   check, a generated skill catalog and CI on Node.js 18 to 26.
 - **Documentation site.** A VitePress guide and a catalog generated from the skills.
@@ -22,9 +28,15 @@ not published yet.
 ### Changed
 
 - **Alexis toolchain in the skills.** oxlint and oxfmt instead of ESLint and Prettier, pnpm instead
-  of npm, 100 columns, CommonJS without `'use strict'`, and one-pass loops in `src/`.
-- **The CLI links `@alexify/metaskills`.** Its logic moved to `src/link.js` behind
-  `bin/metaskills.js`.
+  of npm, 100 or 120 columns by project, CommonJS without `'use strict'`, and one-pass loops in
+  `src/` of libraries and apps.
+- **The command is `alexify-metaskills`.** A scoped bin name would still install `metaskills` and
+  clash with `metarhia/metaskills`. Its logic moved to `src/link.js` behind
+  `bin/alexify-metaskills.js`.
+- **`error-handling` is rewritten.** A Fastify boundary, DAL errors, retry only for transient
+  failures, and a process policy that ends in a graceful shutdown.
+- **Short descriptions.** At most 200 characters each and 5100 in total, because all descriptions
+  share about 1% of the context window.
 
 ### Removed
 
@@ -34,8 +46,11 @@ not published yet.
 ### Fixed
 
 - **Duplicate frontmatter key.** `js-data-structures` declared `description` twice.
-- **IDE names from `Object.prototype`.** `metaskills constructor` is now an unknown IDE.
+- **IDE names from `Object.prototype`.** `alexify-metaskills constructor` is now an unknown IDE.
 - **Closed stdin in the menu.** The CLI reports an invalid choice instead of ending silently.
+- **Unsafe examples in the adapted skills.** A weak scrypt policy, a ReDoS in an email regex, an SSRF
+  filter that passed `::` and NAT64, an auditor role that could delete, a request that crashed the
+  process during shutdown, and undeclared access that admitted any session.
 
 ## Upstream history (metarhia/metaskills)
 

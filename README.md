@@ -45,15 +45,24 @@ unchanged.
 
 ## Skills
 
-| Skill                      | Covers                                                     |
-| -------------------------- | ---------------------------------------------------------- |
-| `js-conventions`           | Alexis JavaScript and TypeScript style, naming and modules |
-| `js-data-structures`       | Choosing native JavaScript collections                     |
-| `data-structures`          | Custom queues, lists, tries, heaps, graphs and CRDTs       |
-| `metautil-data-structures` | The data structures of the `metautil` package              |
-| `js-gof`                   | Creational and structural design patterns                  |
-| `error-handling`           | Error handling and recovery in Node.js                     |
-| `npm-publish`              | Preparing an `@alexify` package for release                |
+34 skills in seven packs. Without an option the command links all of them. A project that needs less
+links `core` and the packs it names, which keeps the skill descriptions within an agent's context:
+
+```bash
+pnpm exec alexify-metaskills claude --pack backend,security
+```
+
+| Pack       | Skills | Covers                                                                |
+| ---------- | ------ | --------------------------------------------------------------------- |
+| `core`     | 8      | Code style, errors, async, schemas, modules, tooling, `@alexify/*`    |
+| `design`   | 5      | Patterns, SOLID and GRASP, paradigms, Onion + DDD, architecture styles |
+| `library`  | 4      | Data structures and preparing an `@alexify` package for release       |
+| `runtime`  | 8      | Event loop, concurrency, events, streams, files, threads, profiling   |
+| `backend`  | 4      | Fastify and HTTP, the data access layer, shutdown, scaling            |
+| `security` | 3      | Application security, crypto and authentication, access control       |
+| `realtime` | 2      | WebSocket on wrpc, local-first sync                                   |
+
+The [catalog](docs/reference/skills.md) lists every skill.
 
 ## Development
 

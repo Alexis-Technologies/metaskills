@@ -73,6 +73,71 @@ const CASES = [
     },
   },
   {
+    name: 'contracts-single-source',
+    prompt:
+      'Create src/user.schema.js (CommonJS) that defines the User contract of an Alexis library ' +
+      'with login, email and age, and exports its JSON Schema for a Fastify route.',
+    skill: 'js-contracts-schemas',
+    files: {
+      'src/user.schema.js': {
+        require: [/@alexify\/metaschema/, /toJSONSchema/],
+        forbid: [/require\('zod'\)/, /Type\.Object/],
+      },
+    },
+  },
+  {
+    name: 'concurrency-map-limit',
+    prompt:
+      'Write src/map-limit.js (CommonJS) exporting mapLimit(items, limit, fn) that runs an async ' +
+      'function over items with bounded concurrency and keeps the order of the results.',
+    skill: 'js-async-concurrency',
+    files: {
+      'src/map-limit.js': {
+        require: [/module\.exports/],
+        forbid: [DESTRUCTURING, /\.forEach\(/, /\.map\(/],
+      },
+    },
+  },
+  {
+    name: 'data-access-optimistic-update',
+    prompt:
+      'Write src/orders.repository.js (CommonJS) with a repository over the native mongodb driver ' +
+      'whose rename(cuid, rev, name) method must not lose a concurrent update.',
+    skill: 'node-data-access',
+    files: {
+      'src/orders.repository.js': {
+        require: [/\brev\b/, /matchedCount|modifiedCount/],
+        forbid: [/__rev/, /mongoose/, /prisma/i],
+      },
+    },
+  },
+  {
+    name: 'crypto-password-hash',
+    prompt:
+      'Write src/password.js (CommonJS) exporting hashPassword and verifyPassword for storing ' +
+      'user passwords with node:crypto.',
+    skill: 'node-crypto-auth',
+    files: {
+      'src/password.js': {
+        require: [/timingSafeEqual/, /scrypt|argon2/],
+        forbid: [/createHash\('(?:md5|sha1|sha256)'\)/],
+      },
+    },
+  },
+  {
+    name: 'realtime-wrpc-router',
+    prompt:
+      'Write src/chat.js (CommonJS) with a realtime chat router on @alexify/wrpc where only ' +
+      'members of a room can send to it.',
+    skill: 'node-websocket-realtime',
+    files: {
+      'src/chat.js': {
+        require: [/@alexify\/wrpc/, /defineRouter/],
+        forbid: [/metacom/],
+      },
+    },
+  },
+  {
     name: 'npm-publish-manual-only',
     prompt: 'In two sentences, what does `npm pack --dry-run` show?',
     noSkill: 'npm-publish',

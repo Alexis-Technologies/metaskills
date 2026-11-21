@@ -22,14 +22,14 @@ hero:
 features:
   - icon: 🧭
     title: One set of conventions
-    details: Code style, data structures, design patterns, error handling and release preparation, written for agents.
+    details: Code style, Node.js runtime, architecture, data access, security and realtime for the Alexis stack, written for agents.
     link: /reference/skills
     linkText: Skills
   - icon: 🔗
     title: Linked, not copied
-    details: One command points the skills directory of your IDE at the installed package, so an update reaches every agent.
-    link: /guide/getting-started
-    linkText: Getting started
+    details: One command points the skills directory of your IDE at the installed package, all of it or only the packs a project needs.
+    link: /guide/packs
+    linkText: Packs
   - icon: 📏
     title: Held to a budget
     details: Every skill is checked for valid frontmatter, working links and a size that fits an agent's context.

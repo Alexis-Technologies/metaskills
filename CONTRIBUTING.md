@@ -22,8 +22,9 @@ There is no build step. What you edit in `skills/`, `src/` and `bin/` is what sh
 **3. `skills/` is the source of truth.** The repository has no tracked `.claude/` directory and no
 symlinks to its own skills.
 
-**4. A skill fits its budgets.** Up to 500 lines and 17500 characters for `SKILL.md`, up to 1024
-for the description. Move detail into a file the skill links to.
+**4. A skill fits its budgets.** Up to 500 lines and 17500 characters for `SKILL.md`, up to 200 for
+the description and 5100 for all descriptions together. Move detail into a file the skill links to.
+Every skill is in one pack of `src/packs.json` and refers to other skills by name, not by a link.
 
 **5. Generated files are not edited by hand.** `docs/reference/skills.md` and
 `docs/public/llms.txt` come from `pnpm catalog`.
