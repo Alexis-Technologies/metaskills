@@ -11,7 +11,16 @@
   ],
   "design": ["js-gof"],
   "library": ["data-structures", "js-data-structures", "metautil-data-structures", "npm-publish"],
-  "runtime": [],
+  "runtime": [
+    "js-async-concurrency",
+    "node-async-context",
+    "node-event-loop",
+    "node-events",
+    "node-fs-buffers",
+    "node-multithreading",
+    "node-performance-profiling",
+    "node-streams"
+  ],
   "backend": [],
   "security": [],
   "realtime": []
