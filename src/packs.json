@@ -1,5 +1,14 @@
 {
-  "core": ["error-handling", "js-conventions"],
+  "core": [
+    "alexis-libraries",
+    "error-handling",
+    "js-ai-assisted-development",
+    "js-async-patterns",
+    "js-contracts-schemas",
+    "js-conventions",
+    "node-modules-packages",
+    "node-tooling-testing"
+  ],
   "design": ["js-gof"],
   "library": ["data-structures", "js-data-structures", "metautil-data-structures", "npm-publish"],
   "runtime": [],
