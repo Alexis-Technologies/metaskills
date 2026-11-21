@@ -27,7 +27,12 @@
     "node-performance-profiling",
     "node-streams"
   ],
-  "backend": [],
+  "backend": [
+    "node-data-access",
+    "node-graceful-shutdown",
+    "node-http-server",
+    "node-scaling-highload"
+  ],
   "security": [],
   "realtime": []
 }
