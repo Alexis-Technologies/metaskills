@@ -39,7 +39,7 @@ There is no build step. What is in `skills/`, `src/` and `bin/` is what ships.
 ## Repository layout
 
 ```text
-bin/metaskills.js     the thin CLI entry
+bin/alexify-metaskills.js  the thin CLI entry
 src/link.js           linking, IDE detection, the menu and run()
 skills/               the source of truth for every skill
 tests/unit/           link, cli, skills, size and pack tests

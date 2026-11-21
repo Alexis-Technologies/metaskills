@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const BIN = path.resolve(__dirname, '../../bin/metaskills.js');
+const BIN = path.resolve(__dirname, '../../bin/alexify-metaskills.js');
 const PACKAGE_SKILLS = path.join('node_modules', '@alexify', 'metaskills', 'skills');
 
 const createProject = (isInstalled = true) => {

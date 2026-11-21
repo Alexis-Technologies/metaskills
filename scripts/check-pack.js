@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, '..');
 const DOCUMENTS = ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE', 'SECURITY.md'];
 const PACK_LIST = 'src/packs.json';
 const ALLOWED =
-  /^(?:bin\/metaskills\.js|src\/link\.js|src\/packs\.json|skills\/[a-z0-9-]+\/.+\.(?:md|js)|package\.json|README\.md|CHANGELOG\.md|LICENSE|SECURITY\.md)$/;
+  /^(?:bin\/alexify-metaskills\.js|src\/link\.js|src\/packs\.json|skills\/[a-z0-9-]+\/.+\.(?:md|js)|package\.json|README\.md|CHANGELOG\.md|LICENSE|SECURITY\.md)$/;
 
 const packProblems = (files, manifest, skills) => {
   const required = new Set(DOCUMENTS);

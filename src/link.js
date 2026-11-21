@@ -398,13 +398,13 @@ const run = async (options) => {
   };
   const source = path.join(root, PACKAGE_SKILLS);
   if (!fs.existsSync(source)) {
-    fail(`metaskills: ${PACKAGE_NAME} is not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
+    fail(`${PACKAGE_NAME}: not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
     return 1;
   }
   const { rest, names, error } = parsePackOption(args);
   const selection = error === '' ? resolveWanted(names, source) : { wanted: null, error };
   if (selection.error !== '') {
-    fail(`metaskills: ${selection.error}`);
+    fail(`${PACKAGE_NAME}: ${selection.error}`);
     return 1;
   }
   const context = { root, source, wanted: selection.wanted, log, fail };
