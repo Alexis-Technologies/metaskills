@@ -1,6 +1,6 @@
 ---
 name: metautil-data-structures
-description: Operate metautil package ADTs — ConsList, Struct, Queue, Stack, Deque, List, Trie, UnrolledList, CircularBuffer. Use when importing or calling these classes from metautil. For native Map/Object/Set/Array, use js-data-structures. For custom data structures, use data-structures.
+description: Operate metautil ADTs (ConsList, Struct, Queue, Stack, Deque, List, Trie, UnrolledList, CircularBuffer). Use when importing or calling these classes from metautil
 ---
 
 # Metautil Data Structures

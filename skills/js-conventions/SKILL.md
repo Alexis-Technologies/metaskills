@@ -1,6 +1,6 @@
 ---
 name: js-conventions
-description: Alexis JavaScript and TypeScript conventions (Metarhia-derived, linted by oxlint and formatted by oxfmt), project lint setup, formatting, naming, object shape and hidden class rules, named intermediate variables, split-then-compose, contracts, module and export order, ternaries, lookup tables, dynamic dispatch, iteration, async/await, cognitive complexity, performance, and benchmarking. Apply automatically whenever writing, editing, refactoring, simplifying, optimizing, formatting, cleaning up, or reviewing .js, .mjs, .cjs, .ts, or .d.ts files, or when the user asks about code style or linting
+description: Alexis JS and TS code style for naming, modules, contracts, iteration, async and performance. Apply when writing, editing, refactoring or reviewing .js, .mjs, .cjs, .ts or .d.ts files
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-conventions) for the Alexis toolchain:

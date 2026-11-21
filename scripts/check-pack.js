@@ -12,11 +12,13 @@ const pkg = require('../package.json');
 
 const ROOT = path.join(__dirname, '..');
 const DOCUMENTS = ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE', 'SECURITY.md'];
+const PACK_LIST = 'src/packs.json';
 const ALLOWED =
-  /^(?:bin\/metaskills\.js|src\/link\.js|skills\/[a-z0-9-]+\/.+\.(?:md|js)|package\.json|README\.md|CHANGELOG\.md|LICENSE|SECURITY\.md)$/;
+  /^(?:bin\/metaskills\.js|src\/link\.js|src\/packs\.json|skills\/[a-z0-9-]+\/.+\.(?:md|js)|package\.json|README\.md|CHANGELOG\.md|LICENSE|SECURITY\.md)$/;
 
 const packProblems = (files, manifest, skills) => {
   const required = new Set(DOCUMENTS);
+  required.add(PACK_LIST);
   const bins = Object.values(manifest.bin);
   for (let i = 0; i < bins.length; i++) required.add(path.posix.normalize(bins[i]));
   for (let i = 0; i < skills.length; i++) required.add(`skills/${skills[i]}/SKILL.md`);

@@ -1,6 +1,6 @@
 ---
 name: js-gof
-description: Apply creational and structural design patterns (GoF and related) in JavaScript and TypeScript: abstract factory, builder, factory, factory method, prototype, flyweight, singleton, object pool, adapter, wrapper, boxing / value object, decorator, proxy, bridge, composite, facade, context. Use when implementing, choosing, explaining, or reviewing one of these patterns, or when the user names one.
+description: Apply creational and structural GoF patterns in JS and TS, such as factory, builder, singleton, pool, adapter, decorator, proxy, bridge and facade. Use when implementing or naming one
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-gof): the examples have no 'use strict' and are

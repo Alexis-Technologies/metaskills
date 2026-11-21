@@ -1,6 +1,6 @@
 ---
 name: error-handling
-description: Error handling and recovery in JavaScript/TypeScript and Node.js - try/catch, async errors, retry with exponential backoff, DomainError, error propagation across layers, process-level handlers, graceful shutdown. Use whenever writing code that retries, catches, wraps, or reports errors, or handles failures, timeouts, or shutdown
+description: Classify, wrap, retry and report errors in JS, TS and Node.js. Use when code catches, retries or maps failures, or sets process-level error handlers
 ---
 
 # Error Handling

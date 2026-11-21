@@ -13,6 +13,7 @@ const FILES = [
   'SECURITY.md',
   'bin/metaskills.js',
   'src/link.js',
+  'src/packs.json',
   'skills/alpha/SKILL.md',
   'skills/alpha/examples/one.js',
 ];
@@ -22,7 +23,7 @@ test('packProblems passes a complete tarball', () => {
 });
 
 test('packProblems reports a missing bin, document or skill', () => {
-  const missing = ['bin/metaskills.js', 'LICENSE', 'skills/alpha/SKILL.md'];
+  const missing = ['bin/metaskills.js', 'LICENSE', 'src/packs.json', 'skills/alpha/SKILL.md'];
   const files = FILES.filter((file) => !missing.includes(file));
   const problems = packProblems(files, MANIFEST, SKILLS);
   for (const file of missing) assert.ok(problems.includes(`${file} is missing from the tarball`));

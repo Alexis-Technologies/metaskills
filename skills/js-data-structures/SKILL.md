@@ -1,6 +1,6 @@
 ---
 name: js-data-structures
-description: Choose and use native JavaScript collections for Big-O, readability, semantics, naming, stability, or testability. Use when working with Map, Object, Set, Array, WeakMap, WeakSet, TypedArray, or deciding among built-in collections. For custom queues, lists, heaps, tries, and related structures, use the data-structures skill.
+description: Choose native JS collections (Map, Object, Set, Array, WeakMap, TypedArray) for Big-O, semantics and readability. Use when picking a built-in collection
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-data-structures): one description key in the

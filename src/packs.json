@@ -1,0 +1,9 @@
+{
+  "core": ["error-handling", "js-conventions"],
+  "design": ["js-gof"],
+  "library": ["data-structures", "js-data-structures", "metautil-data-structures", "npm-publish"],
+  "runtime": [],
+  "backend": [],
+  "security": [],
+  "realtime": []
+}
