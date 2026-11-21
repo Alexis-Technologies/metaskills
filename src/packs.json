@@ -34,5 +34,5 @@
     "node-scaling-highload"
   ],
   "security": ["node-access-control", "node-crypto-auth", "node-security"],
-  "realtime": []
+  "realtime": ["js-local-first-sync", "node-websocket-realtime"]
 }
