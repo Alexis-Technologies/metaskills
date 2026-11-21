@@ -3,37 +3,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
+const { parseFrontmatter } = require('../../scripts/frontmatter.js');
 const { listSkills } = require('../../src/link.js');
 
 const SKILLS_DIR = path.resolve(__dirname, '../../skills');
 
-// Agent Skills spec: name up to 64 chars of [a-z0-9-], description up to 1024
+// Agent Skills spec: name up to 64 chars of [a-z0-9-]. The sizes are checked by scripts/size.js.
 const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MAX_NAME = 64;
-const MAX_DESCRIPTION = 1024;
-// Claude Code re-attaches only the first 5000 tokens of a skill after
-// compaction; Markdown with code is about 3.5 chars per token
-const MAX_SKILL_CHARS = 17500;
-const MAX_SKILL_LINES = 500;
 const LINK_PATTERN = /\]\(([^)\s]+)\)/g;
 const EXTERNAL_LINK = /^[a-z]+:/;
-
-const parseFrontmatter = (text) => {
-  const fields = {};
-  if (!text.startsWith('---\n')) return null;
-  const end = text.indexOf('\n---\n', 4);
-  if (end === -1) return null;
-  const lines = text.slice(4, end).split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const colon = line.indexOf(':');
-    const isTopLevel = colon > 0 && !line.startsWith(' ');
-    if (!isTopLevel) continue;
-    const key = line.slice(0, colon);
-    fields[key] = line.slice(colon + 1).trim();
-  }
-  return fields;
-};
 
 const listMarkdown = (dir) => {
   const files = [];
@@ -58,6 +37,16 @@ const readSkill = (name) => {
 
 const names = listSkills(SKILLS_DIR);
 
+test('parseFrontmatter reports a repeated key', () => {
+  const text = '---\nname: alpha\ndescription: one\ndescription: two\n---\n';
+  assert.deepStrictEqual(parseFrontmatter(text).duplicates, ['description']);
+});
+
+test('parseFrontmatter needs a closed block at the start', () => {
+  assert.strictEqual(parseFrontmatter('# alpha\n'), null);
+  assert.strictEqual(parseFrontmatter('---\nname: alpha\n'), null);
+});
+
 test('every skills/ folder is a skill', () => {
   const entries = fs.readdirSync(SKILLS_DIR, { withFileTypes: true });
   for (let i = 0; i < entries.length; i++) {
@@ -71,25 +60,15 @@ for (let i = 0; i < names.length; i++) {
   const name = names[i];
 
   test(`${name}: frontmatter name and description`, () => {
-    const fields = parseFrontmatter(readSkill(name));
-    assert.ok(fields, 'SKILL.md must start with a --- frontmatter block');
+    const frontmatter = parseFrontmatter(readSkill(name));
+    assert.ok(frontmatter, 'SKILL.md must start with a --- frontmatter block');
+    const { fields, duplicates } = frontmatter;
+    assert.deepStrictEqual(duplicates, [], 'a frontmatter key is repeated');
     assert.strictEqual(fields.name, name, 'name must match the folder');
     assert.ok(NAME_PATTERN.test(name), 'name: lowercase letters, digits, -');
     assert.ok(name.length <= MAX_NAME, `name over ${MAX_NAME} chars`);
     const description = fields.description ?? '';
     assert.ok(description.length > 0, 'description is required');
-    const size = description.length;
-    const message = `description has ${size} chars, max ${MAX_DESCRIPTION}`;
-    assert.ok(size <= MAX_DESCRIPTION, message);
-  });
-
-  test(`${name}: SKILL.md fits the context budget`, () => {
-    const text = readSkill(name);
-    const lines = text.split('\n').length;
-    const linesMessage = `${lines} lines, max ${MAX_SKILL_LINES}`;
-    assert.ok(lines <= MAX_SKILL_LINES, linesMessage);
-    const charsMessage = `${text.length} chars, max ${MAX_SKILL_CHARS}`;
-    assert.ok(text.length <= MAX_SKILL_CHARS, charsMessage);
   });
 
   test(`${name}: relative links resolve`, () => {
