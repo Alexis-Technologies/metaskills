@@ -155,7 +155,8 @@ Details: [references/wrpc-cluster.md](references/wrpc-cluster.md).
 - Keep the 503 intact through the error handler (`node-http-server`).
 - Bound concurrent work per process: wrpc `queue: { concurrency, size, timeout }` for procedures, a
   semaphore with a bounded queue for the rest (`js-async-concurrency`). Overflow answers 503 at once.
-- Every request has a deadline (`handlerTimeout`), propagated with `request.signal`.
+- Every request has a deadline: `handlerTimeout` and `request.signal` on routes without a body,
+  `AbortSignal.timeout` on routes with one, where `handlerTimeout` does not fire (`node-event-loop`).
 - Respect stream back-pressure (`node-streams`), never grow an unbounded in-memory queue, and cap
   `server.maxConnections` when memory per connection is significant.
 

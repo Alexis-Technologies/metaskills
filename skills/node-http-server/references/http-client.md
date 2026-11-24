@@ -74,8 +74,10 @@ export { createBillingClient, UpstreamError };
 
 - `headersTimeout` and `bodyTimeout` default to 300 s. Set them per upstream. undici timers are
   coarse: a 1 s timeout fired at about 1.5 s.
-- A per-call `signal` carries the deadline of the caller. Pass `request.signal` from a Fastify handler,
-  so `handlerTimeout` cancels the call. Combine with `AbortSignal.any` when you need both.
+- A per-call `signal` carries the deadline of the caller. On a Fastify route without a body pass
+  `request.signal`, so `handlerTimeout` cancels the call. On a route with a body `request.signal`
+  aborts once the body is read and `handlerTimeout` never fires: pass `AbortSignal.timeout(ms)`.
+  Combine signals with `AbortSignal.any`.
 - With `AbortSignal.timeout`, the error has `name === 'TimeoutError'`. Pool timeouts have
   `code === 'UND_ERR_HEADERS_TIMEOUT'` or `'UND_ERR_BODY_TIMEOUT'`. A refused connection has
   `code === 'ECONNREFUSED'`.

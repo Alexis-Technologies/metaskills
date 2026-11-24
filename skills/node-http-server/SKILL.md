@@ -92,8 +92,9 @@ export default fp(
   it reaches a route is owned by `js-contracts-schemas`. Never hand-write a route schema as a source.
 - Declare `response` schemas per status: serialization gets faster, and fields outside the schema
   never leave the server.
-- In an async handler, set the status with `reply.code(201)` and `return` the value. If you call
-  `reply.send()`, `return reply`. Answer "no content" with `reply.code(204).send()`.
+- A `response` schema does not set the status. Without `reply.code(201)` the answer is 200, no
+  schema matches it, and the body leaves unfiltered, extra fields included. Set the code and `return`
+  the value; after `reply.send()`, `return reply`. Answer "no content" with `reply.code(204).send()`.
 - Return a `Readable` to stream: Fastify pipes it and handles its errors. `reply.hijack()` hands you
   the raw response, and hooks and error handling no longer apply.
 
@@ -123,12 +124,12 @@ Fastify changes the defaults of `node:http`, and one of them removes a protectio
 | Setting                 | `node:http` | Fastify 5                                 |
 | ----------------------- | ----------- | ----------------------------------------- |
 | `requestTimeout`        | 300 000     | **0 (off)**, set it                       |
-| `headersTimeout`        | 60 000      | 60 000, set through the `http` option     |
+| `headersTimeout`        | 60 000      | 60 000, only through the `http` option    |
 | `keepAliveTimeout`      | 5 000       | 72 000                                    |
 | `connectionTimeout`     | 0           | 0                                         |
 | `handlerTimeout`        | none        | 0 (off)                                   |
 | `bodyLimit`             | none        | 1 MiB, 413 `FST_ERR_CTP_BODY_TOO_LARGE`   |
-| `forceCloseConnections` | none        | `'idle'`                                  |
+| Idle sockets at close   | closed      | closed, `forceCloseConnections: 'idle'`   |
 
 ```ts
 const options = {
@@ -143,8 +144,9 @@ const options = {
 ```
 
 - `requestTimeout` bounds receiving the request (slowloris). Without a proxy in front it is required.
-- `handlerTimeout` answers 503 and aborts `request.signal`, but the work is cooperative: pass
-  `signal: request.signal` to undici, the driver and streams, or it keeps running.
+- `handlerTimeout` answers 503 and aborts `request.signal` only on a route without a body. With a
+  body it never fires, and `request.signal` aborts once the body is read: use `AbortSignal.timeout`
+  with a close guard (`node-event-loop`). Either way pass the signal down, or the work goes on.
 - Raise `bodyLimit` only on the route that needs it. Keep `onProtoPoisoning: 'error'`.
 - Keep `keepAliveTimeout` above the idle timeout of the balancer, or clients see random 502s on
   sockets the balancer is about to reuse.
@@ -288,7 +290,7 @@ server.on('clientError', (error, socket) => {
   in it (its hooks leak to the whole app).
 - An undeclared `request.user = ...`, or per-request data in a module variable.
 - `requestTimeout` left at Fastify's 0 on a public port.
-- A `handlerTimeout` without passing `request.signal` down: the client gets 503 and the work goes on.
+- `handlerTimeout` or `request.signal` on a route with a body, or a deadline not passed down.
 - An error handler that rewrites 503 from `@fastify/under-pressure` to 500.
 - Hand-written route schemas next to the metaschema contract.
 - Axios anywhere. An undici response whose body is neither read nor dumped.
@@ -315,7 +317,7 @@ server.on('clientError', (error, socket) => {
 - [ ] Routes get input and response schemas from the metaschema contract.
 - [ ] `requestTimeout`, `headersTimeout`, `handlerTimeout`, `keepAliveTimeout` and `bodyLimit` are set
       on purpose; `keepAliveTimeout` exceeds the balancer idle timeout.
-- [ ] `request.signal` reaches downstream calls.
+- [ ] A deadline signal reaches downstream calls (`request.signal` only without a body).
 - [ ] `trustProxy` matches the real proxy chain.
 - [ ] One error handler; 5xx bodies are generic; framework 4xx and 503 keep their status.
 - [ ] Outgoing calls use undici (or `fetch` in a library), have deadlines, and consume every body.
