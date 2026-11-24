@@ -9,25 +9,19 @@ release preparation, linked into a project by one command.
 
 📖 Documentation: [alexiskills.vercel.app](https://alexiskills.vercel.app)
 
-> **Status: not published yet.** alexiskills (`@alexify/metaskills` on npm) is a mechanical fork of
-> [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, adapted to the Alexis
-> toolchain. Until it is on npm, install it from a tarball.
+alexiskills (`@alexify/metaskills` on npm) is a mechanical fork of
+[metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, adapted to the Alexis
+toolchain.
 
 ## Installation
 
 ```bash
-git clone https://github.com/Alexis-Technologies/metaskills.git
-cd metaskills
-pnpm install
-pnpm pack
-```
-
-Then, in your project:
-
-```bash
-pnpm add -D /path/to/metaskills/alexify-metaskills-1.0.0.tgz
+pnpm add -D @alexify/metaskills
 pnpm exec alexiskills claude
 ```
+
+To relink on every install, so new skills of your packs appear after `pnpm update`, put the command
+in `prepare`: `"prepare": "alexiskills claude --pack backend,security"`.
 
 The command is `alexiskills`, so it cannot clash with the `metaskills` command of
 `metarhia/metaskills`. It symlinks the skills directory of the IDE to the installed package and adds

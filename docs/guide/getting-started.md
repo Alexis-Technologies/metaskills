@@ -5,12 +5,21 @@ description: Install alexiskills and link its skills into your IDE.
 
 # Getting Started
 
-::: warning Not on npm yet
-alexiskills is not published: its npm package, `@alexify/metaskills`, is not on the registry yet.
-Until it is, install it from a tarball built from a clone.
-:::
+## Install
 
-## Install from a clone
+alexiskills is the npm package `@alexify/metaskills`. Add it as a dev dependency and link your IDE:
+
+```bash
+pnpm add -D @alexify/metaskills
+pnpm exec alexiskills claude
+```
+
+To keep the links current, run the command from `prepare`: see
+[Keep skills updated](/guide/packs#keep-skills-updated).
+
+### Unreleased changes
+
+To try a change before it is released, build a tarball from a clone:
 
 ```bash
 git clone https://github.com/Alexis-Technologies/metaskills.git
@@ -23,7 +32,6 @@ Then, in your project:
 
 ```bash
 pnpm add -D /path/to/metaskills/alexify-metaskills-1.0.0.tgz
-pnpm exec alexiskills claude
 ```
 
 ## Link your IDE

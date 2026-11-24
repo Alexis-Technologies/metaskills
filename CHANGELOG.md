@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-24
+
 The first version of alexiskills, a mechanical fork of
-[metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6 (commit `ab13efe`). It is
-not published yet.
+[metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6 (commit `ab13efe`): 37 skills
+for the Alexis stack in seven packs, and a CLI that links them next to a project's own skills.
 
 ### Added
 
@@ -122,7 +124,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/commits/main
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Alexis-Technologies/metaskills/releases/tag/v1.0.0
 [upstream-1.0.6]: https://github.com/metarhia/metaskills/compare/v1.0.5...v1.0.6
 [upstream-1.0.5]: https://github.com/metarhia/metaskills/compare/v1.0.4...v1.0.5
 [upstream-1.0.4]: https://github.com/metarhia/metaskills/compare/v1.0.3...v1.0.4
