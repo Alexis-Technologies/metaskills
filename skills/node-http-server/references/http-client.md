@@ -9,10 +9,11 @@ One `Pool` per upstream origin, created by an Infrastructure plugin and closed i
 `Agent` when the origins are dynamic (webhooks, identity providers).
 
 ```ts
+// plugins/billing.ts
 import fp from 'fastify-plugin';
 import { Pool } from 'undici';
 
-import { createBillingClient, type BillingClient } from '../infrastructure/billing.ts';
+import { createBillingClient, type BillingClient } from '#shared/infra/billing.client.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {

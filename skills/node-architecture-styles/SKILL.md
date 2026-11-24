@@ -273,8 +273,8 @@ choreography: [references/cqrs-es-saga.md](references/cqrs-es-saga.md).
 - Services that query or write each other's collections, or share document
   models via a "common" package. Communicate through contracts and events.
 - "Service", "Manager", "Helper", "Controller" names that do not match the
-  role; a folder per pattern (`/services`, `/repositories`) with no module
-  boundaries.
+  role; a folder per pattern (`/services`, `/repositories`) at the top instead
+  of modules. Inside a module, `helpers/` holds pure functions only.
 - Transaction Script for business rules; Active Record or ODM entities as the
   domain model; loading many aggregates to compute what one update can do.
 - A transaction around every write: a single-document update is already atomic.

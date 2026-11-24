@@ -1,9 +1,10 @@
 # Presentation adapters and incremental retrofit
 
-The application from [example-app.md](example-app.md) exposes use cases that take
-plain data and throw errors with a `code`. An adapter translates a protocol into
+The module from [example-app.md](example-app.md) exposes a service that takes
+plain data and throws errors with a `code`. An adapter translates a protocol into
 that call and back. Fastify is the HTTP adapter; a BullMQ worker, a wRPC
-procedure and a CLI command are others over the same use cases.
+procedure and a CLI command are others over the same service. Each adapter
+lives in the `presentation/` folder of its module.
 
 Rules for every adapter:
 
@@ -25,8 +26,7 @@ Routes are the controllers. The plugin order is what makes the guard reliable:
 await app.register(validation); // the metaschema validator compiler
 await app.register(errors); // one setErrorHandler
 await app.register(access, { sessions }); // onRoute and onRequest
-await app.register(auth, deps); // decorates the use cases
-await app.register(authRoutes); // every route declares config.access
+await app.register(accounts, deps); // a module: its facade, and routes that declare config.access
 ```
 
 - `onRoute` only sees routes added after it. The `onRequest` guard still covers
@@ -60,6 +60,43 @@ fastify.get('/me/sessions', { config: { access: 'session' } }, async (request) =
   return fastify.sessions.list({ accountId: session!.accountId });
 });
 ```
+
+## One dispatcher for transports without Fastify hooks
+
+A queue worker or a CLI calls the module through one dispatcher with the same
+access decision as the guard. A `@alexify/wrpc` procedure already has it:
+`access` defaults to `'session'`, and any value but `'public'` or `'session'`
+throws.
+
+```ts
+// shared/app/dispatcher.ts
+export const createDispatcher = ({ endpoints, sessions }: DispatcherDeps) => {
+  for (const name of endpoints.keys()) {
+    const { access } = endpoints.get(name)!;
+    if (!isDeclared(access)) throw new Error(`${name}: access is not declared`);
+  }
+
+  const call = async ({ name, args = {}, token = '', requestId }: Call) => {
+    const endpoint = endpoints.get(name);
+    if (!endpoint) throw new DomainError('Not found', 'ENOTFOUND');
+    const session = token ? await sessions.restore(token) : null;
+    if (!isAllowed(endpoint.access, session)) {
+      throw new DomainError('Forbidden', 'EFORBIDDEN');
+    }
+    const { valid, value } = endpoint.schema.parse(args, { unknown: 'reject' });
+    if (!valid) throw new DomainError('Invalid arguments', 'EVALIDATION');
+    const context = Object.freeze({ requestId, session });
+    return endpoint.method(value, context);
+  };
+
+  return Object.freeze({ call });
+};
+```
+
+`Object.freeze` is shallow, so the session store freezes the session too. A
+write to a frozen object throws only in strict code (ESM, TypeScript). In a
+CommonJS module without `'use strict'` it is ignored silently: never base an
+access decision on that throw, and in tests assert the value is unchanged.
 
 ## BullMQ worker
 
@@ -129,20 +166,23 @@ Each step is shippable, so run the tests after each one.
    omission.
 2. Freeze the hook stack: no new hook that writes undeclared fields on `request`.
    Generic plugins are fine.
-3. Pick one route. Move its body into a use case that takes plain data and
-   returns plain data. The handler becomes: read input, call, return. Read
-   decorators exactly once, here.
-4. Replace imports of db, config and logger inside that module with factory
-   parameters. Create the instances in a named `fastify-plugin`.
-5. Move driver calls into a repository with a small interface (`findByLogin`,
-   `save`). The interface belongs to Domain, the implementation to
-   Infrastructure. The use case talks to the interface.
-6. Move the rules into the aggregate, so the use case only orchestrates.
-7. Introduce domain errors with codes and one `setErrorHandler`. Remove
+3. Give each business context a `modules/<name>/` folder with an `index.ts`
+   plugin, and move its routes and service there unchanged
+   ([modules.md](modules.md)).
+4. Pick one route. Move its body into the service or a use case that takes plain
+   data and returns plain data. The handler becomes: read input, call, return.
+   Read decorators exactly once, here.
+5. Replace imports of db, config and logger inside that module with factory
+   parameters. Create the instances in the module's `index.ts`.
+6. Move driver calls into a repository with a small interface (`findByLogin`,
+   `save`). The interface belongs to `domain/`, the implementation to `infra/`.
+   The use case talks to the interface.
+7. Move the rules into the aggregate, so the use case only orchestrates.
+8. Introduce domain errors with codes and one `setErrorHandler`. Remove
    `reply.code(...)` and `httpErrors` from non-adapter code.
-8. Repeat for other routes.
-9. Test use cases directly with fakes, and keep one `inject` test per adapter.
-10. A second transport (queue worker, wRPC, CLI) is now a new adapter file.
+9. Repeat for other routes.
+10. Test services directly with fakes, and keep one `inject` test per adapter.
+11. A second transport (queue worker, wRPC, CLI) is now a new adapter file.
 
 Signals that a step is not finished: a function outside Presentation has a
 parameter named `request` or `reply`; a use case imports `fastify`, `mongodb`,
@@ -162,7 +202,7 @@ it('should map domain errors to statuses', async () => {
   // Act
   const duplicate = await app.inject({ method: 'POST', url: '/accounts', payload });
   const invalid = await app.inject({ method: 'POST', url: '/accounts', payload: { login: 'x' } });
-  const anonymous = await app.inject({ url: '/me' });
+  const anonymous = await app.inject({ url: '/accounts/me' });
   // Assert
   expect([duplicate.statusCode, invalid.statusCode, anonymous.statusCode]).toEqual([409, 400, 403]);
   await app.close();

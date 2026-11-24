@@ -39,8 +39,8 @@ The full wiring, with a lifecycle table and an `inject` test, is in
 
 ### Plugins and decorators
 
-- The entry point registers `@fastify/autoload` for `plugins/`, then for `routes/`. One concern per
-  file.
+- The entry point registers `@fastify/autoload` for `plugins/`, then `modules/` with `maxDepth: 1`,
+  then `routes/`. One concern per file.
 - Wrap with `fastify-plugin` only what the whole app shares: clients, decorators, global hooks. Give
   it `{ name, dependencies }`, so a missing or misordered plugin fails at boot.
 - Route plugins stay encapsulated: no `fastify-plugin`, so their hooks and decorators do not leak.
@@ -52,9 +52,10 @@ The full wiring, with a lifecycle table and an `inject` test, is in
   branches.
 
 ```ts
+// modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from '../application/orders.ts';
+import { createOrderService, type OrderService } from './app/orders.service.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -101,7 +102,7 @@ export default fp(
 ```ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from '../contracts/orders.ts';
+import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
 
 const orderRoutes = async (fastify: FastifyInstance) => {
   const guarded = { preHandler: [fastify.authenticate] };

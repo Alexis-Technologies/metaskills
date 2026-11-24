@@ -1,54 +1,96 @@
 ---
 name: node-layered-architecture
-description: Structure Node.js apps as Onion + DDD layers on Fastify with injected dependencies. Use when designing a layout or moving logic out of routes
+description: Structure Node.js apps as business modules with Onion + DDD layers on Fastify. Use when designing a layout, adding a module or moving logic out of routes
 ---
 
-# Onion + DDD layers for Node.js
+# Modules with Onion + DDD layers for Node.js
 
-Every non-trivial app uses Onion Architecture with Domain-Driven Design:
-business rules in the center, dependencies pointing inward, Fastify and the
-database at the edge. Application code does not know which transport, driver
-or logger runs it. In an existing project apply the boundaries route by route
-and keep the framework at the edge instead of rewriting it.
+An app is split into modules, one per business context. Inside each module,
+Onion Architecture with Domain-Driven Design: business rules in the center,
+dependencies pointing inward, Fastify and the database at the edge. A module
+holds everything of its context, so deleting its folder removes the feature
+and copying it starts a service.
 
 |              | Library `@alexify/*`             | App (`auth8`)                                         |
 | ------------ | -------------------------------- | ----------------------------------------------------- |
-| Structure    | Flat `src/`, no layers           | Domain, Application, Infrastructure, Presentation     |
+| Structure    | Flat `src/`, no layers           | Modules by business context, four layers in each      |
 | Dependencies | Constructor options, zero deps   | Injected through the `fastify-plugin` tree            |
 | Data         | Driver is injected               | Native `mongodb`, own DAL, one repository per aggregate |
 | Config       | Constructor options              | 12-factor, `env-schema`, no `NODE_ENV` branches       |
 
 The rest of this skill is the App profile.
 
+## Modules
+
+- One module per business context (`user-management`, `billing`), not per
+  entity: the users, sessions and tokens of one context are aggregates of one
+  module. A small app has one module.
+- A module owns its layers, collections, indexes and migrations, its
+  `@alexify/kerberos` policies, workers, route schemas and tests.
+  Cross-cutting plugins (config, connections, errors, the access guard) live in
+  `src/plugins/`, and a small shared kernel in `src/shared/`.
+- `index.ts` is the public API and the composition root of the module: a named
+  `fastify-plugin` that builds the module, decorates only its facade and
+  registers its routes under one prefix. It exports types, never internals.
+- Relative imports stay inside the module. Everything else comes through the
+  `package.json` imports `#shared/*` and `#modules/<name>`, never a deep path
+  into another module.
+- Another module declares `dependencies: ['accounts']` and calls the facade, or
+  reacts to a domain event. It never touches another module's collections.
+- Inside a module import a file by its path, not through the module's own
+  `index.ts`: that cycle fails at load with a `ReferenceError`.
+
+Layout, file names, enforcement, extraction: [references/modules.md](references/modules.md).
+
 ## Layers and dependency direction
 
-| Layer | Holds | May use | Must not see |
-| ----- | ----- | ------- | ------------ |
-| Domain | aggregates, entities, value objects, domain events, domain services, repository **interfaces**, domain errors with codes | nothing outside domain | I/O, HTTP statuses, driver, framework |
-| Application | use cases, DTOs, ports (interfaces for infrastructure) | Domain | `request`/`reply`, Fastify, drivers, config |
-| Infrastructure | repository implementations over the DAL, Redis, BullMQ, undici clients, mailer, hasher | Application ports, Domain, OS, npm | routes |
-| Presentation | Fastify routes and plugins, `@alexify/wrpc` procedures, queue workers, CLI | Application use cases **only** | Domain internals, drivers |
-| Composition root | `main.ts` and the plugin tree: config, construction, wiring | everything | |
+| Layer, folder | Holds | May use | Must not see |
+| ------------- | ----- | ------- | ------------ |
+| Domain `domain/` | aggregates, entities, value objects, domain events, repository **interfaces**, error codes | domain, `#shared/domain` | I/O, HTTP statuses, driver, framework |
+| Application `app/` | services, use cases, DTOs, ports | domain | `request`/`reply`, Fastify, drivers, config |
+| Infrastructure `infra/` | repositories over the DAL, collections, migrations, Redis, BullMQ, undici clients, hasher | app ports, domain, OS, npm | routes |
+| Presentation `presentation/` | routes, `@alexify/wrpc` procedures, queue workers, CLI | app **only** | domain internals, drivers |
+| Composition root | `index.ts` of a module, `app.ts`, `main.ts` | everything | |
 
 Inner layers never import from outer layers. Outer layers depend on
-abstractions owned by inner ones. Enforce it with oxlint
-(`no-restricted-imports` per layer, see
-[references/refactoring-steps.md](references/refactoring-steps.md)).
+abstractions owned by inner ones. oxlint enforces the layers, and a test
+enforces the module boundaries.
+
+## Files
+
+- One kind per file, prefixed by the aggregate in the plural:
+  `users.types.ts`, `users.constants.ts`, `users.helpers.ts`,
+  `users.repository.ts`, `users.service.ts`, `users.routes.ts`. A class file
+  is named after its class (`user.ts`), a use case after its action
+  (`sign-up.use-case.ts`).
+- Types, constants, interfaces and helpers never share a file with logic. Add
+  such a file when it has content, not as a placeholder. Several files of one
+  kind become a folder with an `index.ts`: `helpers/index.ts`.
+- A service is the facade over the short operations of the module. An
+  operation with several steps or ports becomes a use case, and the service
+  delegates to it.
+- The repository implementation is `infra/users.repository.ts` (or
+  `users.dal.ts`), without the driver in its name.
+- Helpers are pure: no I/O, no business rule. A rule belongs to the aggregate
+  or a value object.
+- Types travel through `import type` and `export type`: type stripping cannot
+  tell a type from a value, so a plain import of a type fails at load.
+- Tests sit in `tests/` next to the code they check, in every folder.
 
 ## Rules
 
 - Keep `request`, `reply`, sockets and framework objects inside Presentation.
-  A handler reads input once, calls a use case with plain data, returns the
+  A handler reads input once, calls the service with plain data, returns the
   result. Nothing past it has a `request` parameter.
 - Invariants live in the aggregate, not in use cases. A use case orchestrates:
   load through a repository interface, call the aggregate, save, publish
-  events. Use domain events for communication across aggregates.
-- One repository per aggregate. Its interface is in Domain, its implementation
-  in Infrastructure, built on the DAL (`packages/node/src/dal` in `auth8`).
-  Nothing above Infrastructure imports `mongodb`.
+  events. Use domain events for communication across aggregates and modules.
+- One repository per aggregate. Its interface is in `domain/`, its
+  implementation in `infra/`, built on the DAL (`packages/node/src/dal` in
+  `auth8`). Nothing above `infra/` imports `mongodb`.
 - Prefer single-document atomicity inside an aggregate, guard read-modify-write
-  with `rev`, and use a transaction only across aggregates
-  (`node-architecture-styles`).
+  with `rev` (`matchedCount === 0` is a lost update: retry or answer 409), and
+  use a transaction only across aggregates (`node-architecture-styles`).
 - **Every route declares `access`. A missing or unknown declaration is refused**
   (deny by default): at boot, and again at run time. Fine-grained permissions go
   through `@alexify/kerberos` (`node-access-control`).
@@ -61,20 +103,18 @@ abstractions owned by inner ones. Enforce it with oxlint
   handler reads it once and passes it down as an explicit argument.
 - Export factories from replaceable modules: `(deps) => api`, so tests build
   the same object with fakes. A module-level singleton is a hidden global.
-- Wire through `fastify-plugin` with a `name` and declared `dependencies`.
-  Decorate the instance with use cases; do not import a repository in a route.
+- Give every plugin a `name` and declared `dependencies`. Pass objects inside a
+  module through plugin options; do not import a repository in a route.
 - Load config once (`@fastify/env` or `env-schema`) and pass each module only
   its slice. Never read `process.env` deep inside a module, and never branch
   on `NODE_ENV`.
 - Inject Pino (`fastify.log`) as a logger contract. Application code never
   imports a logger package.
-- Keep per-request state in arguments or declared decorators, never in
-  module-level variables.
 - Give domain errors codes and map them to statuses in one `setErrorHandler`.
   Log unexpected errors fully; send a generic message and an error id
   (`error-handling`).
 - REST stays the API style. Use `@alexify/wrpc` for realtime, as another
-  Presentation adapter over the same use cases.
+  Presentation adapter over the same services.
 
 ## Patterns
 
@@ -82,54 +122,41 @@ abstractions owned by inner ones. Enforce it with oxlint
 
 ```text
 src/
-  domain/<context>/        aggregates, value objects, events, repository interfaces
-  application/<context>/   use cases, DTOs, ports
-  infrastructure/          repositories over the DAL, Redis, queues, clients
-  presentation/
-    plugins/               fastify-plugin: guard, errors, validation, wiring
-    routes/                routes: read input, call a use case
-  main.ts                  entry: autoload plugins, then routes
-test/                      use cases with DI fakes, routes through inject
+  main.ts                      entry: config, driver, listen
+  app.ts                       buildApp: plugins, then modules
+  plugins/                     validation, errors, access guard, config, mongodb
+  shared/                      shared kernel: domain/, app/, infra/
+  modules/
+    accounts/
+      index.ts                 public API: plugin, facade, contract types
+      domain/                  account.ts, accounts.constants.ts, accounts.types.ts,
+                               accounts.repository.ts (interface), tests/
+      app/                     accounts.ports.ts, accounts.service.ts,
+                               sign-in.use-case.ts, tests/
+      infra/                   accounts.collection.ts, accounts.repository.ts, tests/
+      presentation/            accounts.routes.ts, accounts.schemas.ts, tests/
+      tests/fakes.ts           fakes shared by the tests of the module
+  tests/architecture.test.ts   module boundaries
 ```
 
 Full runnable code of every file: [references/example-app.md](references/example-app.md).
 Monorepo and library layouts: [references/project-templates.md](references/project-templates.md).
 
-### Aggregate, repository interface, use case
+### Repository interface and use case
 
 ```ts
-// domain/account.ts: no imports
-export class Account {
-  #state: AccountState;
-
-  constructor(state: AccountState) {
-    this.#state = { ...state };
-  }
-
-  ensureCanSignIn() {
-    if (this.#state.blocked) throw new DomainError('Account is blocked', 'EBLOCKED');
-  }
-
-  get passwordHash() {
-    return this.#state.passwordHash;
-  }
-
-  get id() {
-    return this.#state.id;
-  }
-}
-
-export interface Accounts {
+// modules/accounts/domain/accounts.repository.ts: imports only domain
+export interface AccountsRepository {
   findByLogin(login: string): Promise<Account | null>;
   save(account: Account): Promise<boolean>;
 }
 ```
 
 ```ts
-// application/auth.ts: depends on Domain and on its own ports
-export const createAuth = ({ accounts, hasher, sessions, dummyHash }: AuthDeps) => {
-  const signIn = async ({ login, password }: Credentials) => {
-    const account = await accounts.findByLogin(normalizeLogin(login));
+// modules/accounts/app/sign-in.use-case.ts: depends on domain and on its own ports
+export const createSignIn = ({ repository, hasher, sessions, dummyHash }: SignInDeps) => {
+  return async ({ login, password }: Credentials) => {
+    const account = await repository.findByLogin(normalizeLogin(login));
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
     if (!account || !isMatch) throw new DomainError('Wrong credentials', 'EAUTH');
@@ -137,35 +164,13 @@ export const createAuth = ({ accounts, hasher, sessions, dummyHash }: AuthDeps) 
     const token = await sessions.start({ accountId: account.id });
     return { token };
   };
-  return Object.freeze({ signIn });
 };
 ```
-
-### Repository over the native driver
-
-```ts
-// infrastructure/accounts.repository.ts: the only code that knows the document
-export const createAccountsRepository = (collection: Collection<AccountDocument>): Accounts => ({
-  async findByLogin(login) {
-    const document = await collection.findOne({ login });
-    return document ? toAccount(document) : null;
-  },
-
-  async save(account) {
-    const { id: cuid, blocked, rev } = account.toState();
-    const update = { $set: { blocked }, $inc: { rev: 1 } };
-    const result = await collection.updateOne({ cuid, rev }, update);
-    return result.matchedCount === 1;
-  },
-});
-```
-
-`matchedCount === 0` is a lost-update conflict: retry or answer 409.
 
 ### Deny by default: one access decision for every transport
 
 ```ts
-// application/access.ts
+// shared/app/access.ts
 const POLICIES = new Map<unknown, Policy>([
   ['public', () => true],
   ['session', (session) => session !== null],
@@ -184,7 +189,7 @@ that declares nothing, or has a typo such as `'sesion'`. Look the policy up and
 refuse when there is none.
 
 ```ts
-// presentation/plugins/access.ts
+// plugins/access.ts
 const guard = async (fastify: FastifyInstance, { sessions }: GuardOptions) => {
   fastify.decorateRequest('session', null);
 
@@ -206,101 +211,55 @@ export default fp(guard, { name: 'access' });
 ```
 
 `onRoute` fails the boot for a route without `access`; `onRequest` also refuses
-a route added before the guard, where `onRoute` did not fire. A third-party
-plugin's routes (Swagger UI) carry no `access`: set it for that prefix in an
-`onRoute` hook added before the guard.
+a route added before the guard, where `onRoute` did not fire. A queue worker or CLI goes through one
+dispatcher with the same decision, and a `@alexify/wrpc` procedure already has
+it (`references/framework-adapters.md`).
 
 ### Route: read once, pass plain values
 
 ```ts
-const authRoutes = async (fastify: FastifyInstance) => {
-  const { auth } = fastify;
-  const options = { config: { access: 'public' }, schema: { body: Credentials } };
+// modules/accounts/presentation/accounts.routes.ts
+export const accountsRoutes = async (fastify: FastifyInstance, { service }: RoutesOptions) => {
+  const publicRoute = { config: { access: 'public' }, schema: { body: CredentialsSchema } };
 
-  fastify.post<{ Body: Body }>('/sessions', options, async (request) => {
-    return auth.signIn(request.body);
+  fastify.post<{ Body: Credentials }>('/sessions', publicRoute, async (request) => {
+    return service.signIn(request.body);
   });
 
   fastify.get('/me', { config: { access: 'session' } }, async (request) => {
     const { session } = request;
-    return auth.getProfile(session!);
+    return service.getProfile(session!);
   });
 };
 ```
 
-### Transports without Fastify hooks
-
-A queue worker or CLI calls use cases through one dispatcher with the same
-decision. A `@alexify/wrpc` procedure already has it: `access` defaults to
-`'session'` and any value but `'public'` or `'session'` throws.
+### Composition roots
 
 ```ts
-// application/dispatcher.ts
-export const createDispatcher = ({ endpoints, sessions }: DispatcherDeps) => {
-  for (const name of endpoints.keys()) {
-    const { access } = endpoints.get(name)!;
-    if (!isDeclared(access)) throw new Error(`${name}: access is not declared`);
-  }
-
-  const call = async ({ name, args = {}, token = '', requestId }: Call) => {
-    const endpoint = endpoints.get(name);
-    if (!endpoint) throw new DomainError('Not found', 'ENOTFOUND');
-    const session = token ? await sessions.restore(token) : null;
-    if (!isAllowed(endpoint.access, session)) {
-      throw new DomainError('Forbidden', 'EFORBIDDEN');
-    }
-    const { valid, value } = endpoint.schema.parse(args, { unknown: 'reject' });
-    if (!valid) throw new DomainError('Invalid arguments', 'EVALIDATION');
-    const context = Object.freeze({ requestId, session });
-    return endpoint.method(value, context);
-  };
-
-  return Object.freeze({ call });
+// modules/accounts/index.ts: builds the module, exposes the facade
+const accountsModule = async (fastify: FastifyInstance, options: AccountsOptions) => {
+  const { db, sessions, createId } = options;
+  const repository = createAccountsRepository(await openAccounts(db));
+  const hasher = createPasswordHasher();
+  const dummyHash = await hasher.hash(randomUUID());
+  const deps = { repository, hasher, sessions, logger: fastify.log, createId, dummyHash };
+  const service = createAccountsService(deps);
+  fastify.decorate('accounts', service);
+  await fastify.register(accountsRoutes, { prefix: '/accounts', service });
 };
-```
 
-`Object.freeze` is shallow, so the session store freezes the session too. A
-write to a frozen object throws only in strict code (ESM, TypeScript). In a
-CommonJS module without `'use strict'` it is ignored silently: never base an
-access decision on that throw, and in tests assert the value is unchanged.
-
-### Composition root
-
-```ts
-export const buildApp = async (deps: AuthDeps, options: FastifyServerOptions = {}) => {
-  const app = Fastify(options);
-  await app.register(validation);
-  await app.register(errors);
-  await app.register(access, { sessions: deps.sessions });
-  await app.register(auth, deps);
-  await app.register(authRoutes);
-  return app;
-};
-```
-
-`auth8` loads the same tree with `@fastify/autoload`: `plugins/` first, then
-`routes/`, each plugin naming its `dependencies`. Tests call `buildApp` with
-fakes.
-
-### Test business rules without a server
-
-```ts
-it('should refuse an unknown login even with the dummy password', async () => {
-  // Arrange
-  const auth = createAuth(createDeps());
-  // Act
-  const attempt = auth.signIn({ login: 'ghost', password: 'dummy' });
-  // Assert
-  await expect(attempt).rejects.toMatchObject({ code: 'EAUTH' });
+export default fp(accountsModule, {
+  name: 'accounts',
+  dependencies: ['validation', 'errors', 'access'],
 });
 ```
 
-### Service Locator: only at the edge
+`buildApp` in `app.ts` registers the plugins, then each module after the ones it
+depends on. `@fastify/autoload` needs `maxDepth: 1` over `modules/`. Tests call
+`buildApp` with fakes; a service runs in a unit test with no server.
 
-`require`/`import` already are service locators bound to concrete files. A
-locator hides dependencies inside method bodies and depends on registration
-order. Use it for open-ended plugin sets or for choosing an implementation by
-name in the composition root, not inside domain code:
+Use a Service Locator only at the edge, for open-ended plugin sets or for
+choosing an implementation by name in a composition root:
 [references/di-and-service-locator.md](references/di-and-service-locator.md).
 
 ## Retrofitting an existing Fastify app
@@ -310,15 +269,16 @@ Do not rewrite. Per route, in shippable steps (details in
 
 1. Declare `access` on every route and install the guard, so nothing is open
    by omission.
-2. Stop adding hooks that write undeclared fields on `request`.
-3. Move the handler body into a use case that takes plain data; the route
-   reads declared decorators once and passes them as arguments.
+2. Give each business context a `modules/<name>/` folder with an `index.ts`
+   plugin, and move its routes and service there unchanged.
+3. Move the handler body into the service or a use case that takes plain data;
+   the route reads declared decorators once and passes them as arguments.
 4. Move the rules into the aggregate, and driver calls into a repository
-   behind an interface owned by Domain.
-5. Turn imports of db, config and logger into factory parameters, wired by a
-   named `fastify-plugin`.
+   behind an interface in `domain/`.
+5. Turn imports of db, config and logger into factory parameters, wired by the
+   module's `index.ts`.
 6. Add domain error codes and one `setErrorHandler` mapping.
-7. Add the oxlint layer rules once a context is clean.
+7. Add the oxlint layer rules and the architecture test once a module is clean.
 
 The ordered path, with the coupling each step removes:
 [references/refactoring-steps.md](references/refactoring-steps.md).
@@ -328,49 +288,48 @@ The ordered path, with the coupling each step removes:
 | Anti-pattern | Why it hurts | Instead |
 | ------------ | ------------ | ------- |
 | Route without `access`, or a check that admits it | one forgotten line opens an endpoint | deny by default, fail the boot |
-| Transaction Script or anemic layered MVC | rules leak into services, invariants scatter, code couples to framework and DB | aggregates + use cases |
-| Business logic in hooks | implicit order, nobody owns the request | hooks stay generic, logic in use cases |
-| Undeclared `request.user = ...` | shape depends on which hook ran; `if (request.x)` everywhere | `decorateRequest`, read in the handler |
-| Module-level request state (`let currentUserId`) | concurrent requests overwrite it between `await`s; wrong user gets data | an explicit argument |
-| `request`/`reply`/socket passed to services, timers, events | any holder can end the response; races | the handler keeps them; pass plain data |
-| Fat handler (parse, validate, query, cache, log, format errors) | mixed layers, untestable without HTTP | route + use case + repository |
-| Imports of `db`, `config`, `logger` in every file | one implementation, singletons, init-order bugs | composition root + factories |
-| Whole config passed to every module | transport can read DB passwords; hidden coupling | config slices |
+| Layer folders at the top for every context | one feature spreads over four folders; deleting or extracting it starts with a search | a folder per module, layers inside |
+| A deep import into another module, or a read of its collection | the modules cannot be deleted or extracted apart | the facade through `#modules/<name>`, events |
+| Types, constants and helpers in the file with the logic | changes collide, the file has no single reason to change | one kind per file |
+| Transaction Script or anemic layered MVC | rules leak into services, invariants scatter | aggregates + use cases |
+| Business logic in hooks | implicit order, nobody owns the request | hooks stay generic, logic in services |
+| Module-level request state (`let currentUserId`) | concurrent requests overwrite it between `await`s | an explicit argument |
+| Imports of `db`, `config`, `logger` in every file | one implementation, singletons, init-order bugs | composition roots + factories |
 | Services returning HTTP codes or throwing `httpErrors` | domain bound to one protocol | domain error codes mapped at the edge |
-| ORM or driver types in the domain | lock-in, leaky abstractions | repository interface, plain state |
-| Building module paths from config strings | arbitrary file load | explicit factory map |
 
 Why hooks are constrained, with failure examples and a replacement table:
 [references/middleware.md](references/middleware.md).
 
 ## Checklist
 
+- [ ] One folder per business context in `src/modules/`, each with `domain/`,
+      `app/`, `infra/`, `presentation/` and tests next to the code.
+- [ ] Other code reaches a module only through `#modules/<name>`; the
+      architecture test passes, and no module reads another one's collections.
 - [ ] Every route declares `access`; a route without it fails the boot and is
       refused at run time.
 - [ ] No file outside Presentation has a `request`/`reply` parameter or imports
-      `fastify`.
-- [ ] `domain/` imports nothing from other layers; `application/` imports only
-      Domain; oxlint enforces both.
-- [ ] Invariants live in aggregates; use cases only orchestrate.
-- [ ] One repository per aggregate, interface in Domain, native driver in
-      Infrastructure; `rev` guards read-modify-write.
+      `fastify`; oxlint enforces the layer rules and `import/no-cycle`.
+- [ ] Invariants live in aggregates; services and use cases only orchestrate.
+- [ ] One repository per aggregate, interface in `domain/`, native driver in
+      `infra/`; `rev` guards read-modify-write.
+- [ ] Types, constants and helpers have their own files; types use `import type`.
 - [ ] Plugins have a `name` and declared `dependencies`; config is read once.
-- [ ] No module-level mutable state written per request; request fields are
-      declared and read only in handlers.
 - [ ] Errors carry codes; exactly one place maps them to statuses; 500s send a
       generic message and an error id, and are logged.
 - [ ] Business rules are tested without a server; each adapter has one
       behavioural test.
-- [ ] Hooks are generic and hold no business logic.
 
 ## References
 
+- [references/modules.md](references/modules.md): layout, what a module owns,
+  file names, imports, enforcement, extraction
 - [references/example-app.md](references/example-app.md): complete runnable
-  Onion app with tests
+  app with one module and its tests
 - [references/framework-adapters.md](references/framework-adapters.md): Fastify,
-  BullMQ, wRPC and CLI adapters; retrofit plan
+  BullMQ, wRPC and CLI adapters, the dispatcher; retrofit plan
 - [references/refactoring-steps.md](references/refactoring-steps.md): the path
-  from a fat handler to layers, and the oxlint rules
+  from a fat handler to a module
 - [references/di-and-service-locator.md](references/di-and-service-locator.md):
   DI styles, plugin wiring, Service Locator
 - [references/middleware.md](references/middleware.md): what hooks may do, and
@@ -379,7 +338,7 @@ Why hooks are constrained, with failure examples and a replacement table:
   app and library layouts
 
 Related skills: `js-solid-grasp` (DIP, Low Coupling, Controller),
-`node-architecture-styles` (style choice, DDD, CQRS, outbox),
+`node-architecture-styles` (style choice, modular monolith, DDD, CQRS, outbox),
 `js-contracts-schemas`, `node-data-access`, `error-handling`,
 `node-graceful-shutdown`, `node-async-context`, `node-http-server`,
 `node-websocket-realtime`, `node-access-control`, `js-gof` (Strategy, Facade,

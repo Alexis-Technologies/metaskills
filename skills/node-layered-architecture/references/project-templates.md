@@ -1,34 +1,31 @@
 # Project layouts
 
-## App: one context in Onion layers
+## App: modules with layers inside
 
-The target structure of ADR-003. Code moves into it context by context.
+The target structure. Code moves into it module by module; the full tree and the
+naming rules are in [modules.md](modules.md).
 
 ```text
 src/
-  main.ts                 entry: autoload plugins, then routes
-  domain/
-    account/              aggregate, value objects, events, repository interface, errors
-  application/
-    account/              use cases, DTOs, ports
-  infrastructure/
-    repositories/         repository implementations
-    clients/              undici clients, mailer
-    queues/               BullMQ producers
-  presentation/
-    plugins/              guard, errors, validation, wiring, config
-    routes/               Fastify routes
-    workers/              BullMQ processors
-test/
-  application/*.test.ts   use cases with DI fakes
-  presentation/*.test.ts  routes through inject
+  main.ts                 entry: config, driver, listen
+  app.ts                  buildApp: plugins, then modules
+  plugins/                validation, errors, access guard, config, mongodb, redis, queues
+  shared/                 shared kernel: domain/, app/, infra/
+  modules/
+    <name>/
+      index.ts            public API and composition root of the module
+      domain/             aggregates, value rules, events, repository interfaces
+      app/                services, use cases, ports
+      infra/              repositories, collections, migrations, clients
+      presentation/       routes, schemas, workers, wRPC procedures
+      tests/              fakes shared by the tests of the module
+  tests/                  the architecture test
 ```
 
-Dependency rules to lint: `domain/` imports nothing from other layers,
-`application/` imports only `domain/`, `infrastructure/` implements their
-interfaces, `presentation/` calls use cases.
-
-As a context grows, keep one use case per file (`application/account/sign-in.ts`).
+Every folder keeps its tests in its own `tests/`. Dependency rules to lint:
+`domain/` imports nothing from other layers, `app/` imports only `domain/`,
+`infra/` implements their interfaces, `presentation/` calls `app/`. Another
+module is reached only through `#modules/<name>`.
 
 ## Monorepo: the `auth8` shape
 
@@ -37,29 +34,30 @@ apps/
   auth8-api/              Fastify service
     src/main.ts           autoload of plugins/ and routes/
     src/plugins/          config, mongodb, redis, kerberos, authenticate, queues, swagger
-    src/routes/           HTTP routes
-    src/modules/          feature modules
+    src/routes/           routes outside the modules: health
+    src/modules/          business modules: auth
   auth8-jobs/             BullMQ workers
   auth8-web/              frontend
 packages/
   node/src/dal/           connection, base repository, mapper, validation, transactions
-  node/src/repositories/  one repository per aggregate, shared by api and jobs
+  node/src/repositories/  repositories shared by api and jobs
   schemas/                schema source
   enums/                  `as const` objects
   kerberos/               authorization policies
 ```
 
-- The DAL and the repositories belong to the Infrastructure ring, and both the
-  API and the jobs consume them.
+- The DAL belongs to infrastructure, and both the API and the jobs consume it.
 - `buildRepositories({ connection, ajv, logger })` assembles every repository
   over one connection, and each one is `class XRepository extends
   RepositoryWithDefaultAutoFields`.
-- Domain and Application depend on repository **interfaces**, and nothing above
-  Infrastructure imports `mongodb`.
-- `auth8` does not fully follow the ring folders yet: part of its logic is in
-  `apps/auth8-api/src/modules/auth/service.ts`. Apply the
-  [refactoring steps](refactoring-steps.md) when you touch such a module, and do
-  not copy that shape into new code.
+- Domain and app code depend on repository **interfaces**, and nothing above
+  infrastructure imports `mongodb`.
+- `auth8` already has `apps/auth8-api/src/modules/auth/`, but its logic sits in
+  one `service.ts` and its repositories in `packages/node`. Split it with the
+  [refactoring steps](refactoring-steps.md) when you touch it.
+- A module that both the API and the jobs need becomes a workspace package with
+  one entry for the plugin and one for the workers
+  ([modules.md](modules.md)).
 
 ## Library: flat `src/`
 
@@ -94,6 +92,6 @@ export default fp(
 | ---- | --------- |
 | A library | Flat `src/` |
 | A trivial path: health check, a static list | A route calling a repository is fine; say why |
-| Any business rule | Domain + Application + Infrastructure + Presentation |
-| Several contexts | One folder per context in each ring; contexts talk through use cases or domain events |
-| A separate deployable | A new `apps/*` over the same `packages/node`, see `node-architecture-styles` |
+| Any app with a business rule | One module with `domain/`, `app/`, `infra/`, `presentation/` |
+| Several contexts | One module per context; they talk through facades or domain events |
+| A separate deployable | A new `apps/*`: copy the module, see `node-architecture-styles` |

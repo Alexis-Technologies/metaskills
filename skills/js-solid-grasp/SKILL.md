@@ -249,7 +249,7 @@ console.log(listNames([{ filename: 'a.txt' }, file]), await attach(file));
 ### DIP: use case owns contracts, the plugin tree wires implementations
 
 ```ts
-// application/ports.ts: imports nothing from infrastructure
+// app/accounts.ports.ts: imports nothing from infra
 export interface Account {
   login: string;
   hash: string;
@@ -265,7 +265,7 @@ export interface Logger {
   warn(message: string): void;
 }
 
-// application/sign-in.ts: dummyHash keeps the timing of an unknown login
+// app/sign-in.use-case.ts: dummyHash keeps the timing of an unknown login
 type SignInDeps = { accounts: Accounts; hasher: Hasher; logger: Logger; dummyHash: string };
 
 export const createSignIn = ({ accounts, hasher, logger, dummyHash }: SignInDeps) => {
@@ -282,7 +282,7 @@ export const createSignIn = ({ accounts, hasher, logger, dummyHash }: SignInDeps
 ```
 
 ```ts
-// plugins/sign-in.ts: wiring only; the sole place that knows implementations
+// index.ts of the module: wiring only; the sole place that knows implementations
 import fp from 'fastify-plugin';
 
 export default fp(

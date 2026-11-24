@@ -7,11 +7,13 @@ code below was run on Node.js 24 with Fastify 5.8, `fastify-plugin` 6 and `@fast
 
 ```text
 src/
-  main.ts            options, autoload of plugins/ and routes/, error handler
+  main.ts            options, autoload of plugins/, modules/ and routes/, error handler
   plugins/           shared: config, clients, auth, limits (fastify-plugin)
-  routes/            encapsulated route plugins
-  modules/<name>/    routes, service and repositories of one bounded context
+  modules/<name>/    one business context: index.ts, domain/, app/, infra/, presentation/
+  routes/            routes outside the modules: health
 ```
+
+The module layout is in `node-layered-architecture`.
 
 ## Entry point
 
@@ -35,25 +37,37 @@ const options = {
 
 const main = async (fastify: FastifyInstance, opts: FastifyPluginOptions) => {
   const plugins = path.join(import.meta.dirname, 'plugins');
+  const modules = path.join(import.meta.dirname, 'modules');
   const routes = path.join(import.meta.dirname, 'routes');
-  await fastify.register(AutoLoad, { dir: plugins, options: { ...opts } });
-  await fastify.register(AutoLoad, { dir: routes, options: { ...opts } });
+  const ignorePattern = /^tests$/;
+  await fastify.register(AutoLoad, { dir: plugins, ignorePattern, options: { ...opts } });
+  await fastify.register(AutoLoad, {
+    dir: modules,
+    maxDepth: 1,
+    dirNameRoutePrefix: false,
+    options: { ...opts },
+  });
+  await fastify.register(AutoLoad, { dir: routes, ignorePattern, options: { ...opts } });
 };
 
 export { options };
 export default main;
 ```
 
-- `plugins/` loads first, so routes can read every decorator.
+- `plugins/` loads first, so modules and routes can read every decorator.
+- Autoload imports every file it finds, tests too. `maxDepth: 1` loads only `modules/<name>/index.ts`,
+  and `ignorePattern` keeps `tests/` out of the other folders.
 - Inside one directory, autoload orders plugins by their `dependencies`.
 - The error handler is set once, here or in its own plugin (`error-handling`).
 
 ## Shared plugin
 
 ```ts
+// modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from '../application/orders.ts';
+import { createOrderService, type OrderService } from './app/orders.service.ts';
+import { orderRoutes } from './presentation/orders.routes.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -68,10 +82,13 @@ export default fp(
     fastify.addHook('onClose', async () => {
       await orders.stop();
     });
+    await fastify.register(orderRoutes, { prefix: '/orders' });
   },
   { name: 'orders', dependencies: ['config', 'mongodb'] },
 );
 ```
+
+The module decorates its facade for the whole app and registers its routes in their own context.
 
 A plugin whose dependency is missing fails at boot (`The dependency 'x' of plugin 'y' is not
 registered`), not on the first request.
@@ -122,8 +139,8 @@ export default fp(
 - The status comes from the schema, not from the method: a POST that signs in or cancels declares 200.
 - It runs last among `preHandler` hooks, so a guard that answers 401 keeps its code.
 - `reply.code()` in the handler still wins, and a route with several 2xx codes keeps the default 200.
-- **Register it before the routes.** `onRoute` sees only routes added after it. A shared plugin in
-  `plugins/` loads before `routes/`.
+- **Register it before the routes.** `onRoute` sees only routes added after it. A plugin in
+  `plugins/` loads before the modules and `routes/`.
 - **The error handler must always call `reply.code()`.** Otherwise an error body goes out with 201
   and the 201 schema: a loose schema let `201 {"error":{"code":"EINTERNAL"}}` through.
 
@@ -172,29 +189,28 @@ export default fp(
 
 ## Route plugin
 
-No `fastify-plugin` here: hooks added inside stay inside.
+No `fastify-plugin` here: hooks added inside stay inside. The module registers it under `/orders`.
 
 ```ts
+// modules/orders/presentation/orders.routes.ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from '../contracts/orders.ts';
+import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
 
-const orderRoutes = async (fastify: FastifyInstance) => {
+export const orderRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook('onRequest', fastify.authenticate);
 
   const schema = { body: CreateOrderBody, response: { 201: OrderReply } };
 
-  fastify.post('/orders', { schema, bodyLimit: 16_384 }, async (request) =>
+  fastify.post('/', { schema, bodyLimit: 16_384 }, async (request) =>
     fastify.orders.create(request.user!.id, request.body),
   );
 
-  fastify.get('/orders/:id', async (request) => {
+  fastify.get('/:id', async (request) => {
     const { id } = request.params as { id: string };
     return fastify.orders.get(id, { signal: request.signal });
   });
 };
-
-export default orderRoutes;
 ```
 
 `CreateOrderBody` and `OrderReply` come from the metaschema contract through the chain described in
@@ -222,17 +238,18 @@ export default orderRoutes;
 `inject` runs the whole lifecycle without a socket. Build the app in a function and pass fakes.
 
 ```ts
+// modules/orders/presentation/tests/orders.routes.test.ts
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import routes from '../src/routes/orders.ts';
+import { orderRoutes } from '../orders.routes.ts';
 
 describe('POST /orders', () => {
   it('should answer 413 when the body exceeds the route limit', async () => {
     const app = Fastify();
     app.decorate('authenticate', async () => {});
     app.decorate('orders', { create: async () => ({ id: '1' }) });
-    await app.register(routes);
+    await app.register(orderRoutes, { prefix: '/orders' });
 
     const payload = { note: 'x'.repeat(20_000) };
     const response = await app.inject({ method: 'POST', url: '/orders', payload });

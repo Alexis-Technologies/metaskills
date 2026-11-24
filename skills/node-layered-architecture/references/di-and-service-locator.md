@@ -72,7 +72,7 @@ first and `routes/` second. Encapsulated route plugins see every decorator of
 the root and add nothing to it.
 
 Keep the discipline with oxlint: forbid infrastructure imports in `domain/` and
-`application/` (see [refactoring-steps.md](refactoring-steps.md)).
+`app/` (see [modules.md](modules.md)).
 
 ## Service Locator
 

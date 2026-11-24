@@ -18,7 +18,8 @@ not published yet.
 - **27 skills for the Alexis stack.** Runtime and async, architecture, data access, HTTP, security,
   realtime, tooling, and `alexis-libraries`, a guide to the `@alexify/*` packages. They are adapted
   from course-based skills to Fastify, a DAL over the native MongoDB driver, `@alexify/metaschema`
-  as the single source of schemas, oxlint and oxfmt.
+  as the single source of schemas, oxlint and oxfmt. An app is laid out as modules by business
+  context, each with `domain/`, `app/`, `infra/` and `presentation/` and its tests beside the code.
 - **Skill packs.** `alexiskills claude --pack backend,security` links `core` and the chosen
   packs instead of all 34 skills, so their descriptions fit an agent's context.
 - **Repository gates.** oxlint, oxfmt, `node:test` with c8, context budgets for skills, a tarball

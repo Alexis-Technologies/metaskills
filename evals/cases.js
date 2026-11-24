@@ -138,6 +138,24 @@ const CASES = [
     },
   },
   {
+    name: 'layered-module-files',
+    prompt:
+      'This is a Fastify + TypeScript app. Add the domain layer of a new invoices module: an ' +
+      'Invoice aggregate whose markPaid() refuses an invoice that is already paid, its status ' +
+      'constants and its repository interface.',
+    skill: 'node-layered-architecture',
+    files: {
+      'src/modules/invoices/domain/invoices.repository.ts': {
+        require: [/interface \w+/],
+        forbid: [/from 'mongodb'/, /from 'fastify'/],
+      },
+      'src/modules/invoices/domain/invoices.constants.ts': {
+        require: [/as const/],
+        forbid: [/\benum\b/],
+      },
+    },
+  },
+  {
     name: 'npm-publish-manual-only',
     prompt: 'In two sentences, what does `npm pack --dry-run` show?',
     noSkill: 'npm-publish',
