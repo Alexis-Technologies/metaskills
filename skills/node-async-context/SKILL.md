@@ -7,7 +7,7 @@ description: Request context in Node.js with Fastify request ids, explicit actor
 
 With this skill the agent keeps per-request data (request id, actor, tenant,
 transaction, abort signal) correct across async boundaries. It logs through
-`request.log`, passes an explicit context through use cases, and uses
+`request.log`, passes an explicit context through services, and uses
 `AsyncLocalStorage` (ALS) only for cross-cutting concerns (logging, tracing, DB
 adapters) where changing signatures is impractical. It fixes every place where
 the context is lost, and never lets one request's data leak into another.
@@ -18,7 +18,7 @@ the context is lost, and never lets one request's data leak into another.
 | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Log with the request id in a Fastify route or hook                | `request.log`, a child logger bound to `request.id`                           |
 | Correlate one request across services                             | `request.id` from a validated `x-request-id`, forwarded on outgoing calls     |
-| Who performed a write (`createdBy`, `updatedBy`, audit)           | Explicit actor in the use case context, passed to the repository              |
+| Who performed a write (`createdBy`, `updatedBy`, audit)           | Explicit actor in the service context, passed to the repository               |
 | Domain/application functions need user, permissions, repositories | Explicit `context` argument or constructor injection                          |
 | Logger/tracer/DB adapter needs the request id deep in the stack   | ALS, read at the edge (logger, adapter)                                       |
 | A userland queue, pool, batcher or scheduler runs callbacks later | `AsyncResource.bind(fn)` / `AsyncLocalStorage.snapshot()` at enqueue time     |
@@ -31,7 +31,7 @@ Where the profiles differ:
 - **Library:** there is no request and no framework. Take context as an
   argument, never read or export a global store. If the library queues
   callbacks, bind them with `AsyncResource.bind` so the caller's ALS survives.
-- **App:** Fastify gives every request an id and a child logger. Use cases get
+- **App:** Fastify gives every request an id and a child logger. Services get
   an explicit context from the Presentation layer. ALS stays in Infrastructure.
 
 Defaults, and why:
@@ -51,7 +51,7 @@ Request id and logging (App)
 
 - Log with `request.log` inside routes and hooks. A logger from `fastify.log`
   has no request id, so a service or repository that holds it loses
-  correlation. Pass `request.log` in the use case context, or add the id with
+  correlation. Pass `request.log` in the service context, or add the id with
   a Pino `mixin` (pattern below).
 - Fastify's default id is `req-1`, `req-2`: a per-process counter that repeats
   across replicas and restarts. Set `genReqId` to accept a validated
@@ -62,8 +62,8 @@ Request id and logging (App)
 
 Actor context (App)
 
-- The actor is an input of the use case, not ambient state. The Presentation
-  layer or the job entry point builds it, and the use case passes it to the
+- The actor is an input of the service, not ambient state. The Presentation
+  layer or the job entry point builds it, and the service passes it to the
   repository, which stamps `createdBy` and `updatedBy`.
 - User-initiated writes store the user's `cuid`, never the `_id`. System writes
   (job, scheduler, migration, webhook) store `sys:${type}:${name}`, built only
@@ -222,7 +222,7 @@ await app.register(contextPlugin);
   as `request.log`. The bindings check stops `request.log` lines from getting
   the key twice.
 
-### Explicit actor through a use case
+### Explicit actor through a service
 
 ```ts
 const ActorType = { Job: 'job', Scheduler: 'scheduler', Migration: 'migration' } as const;
@@ -231,12 +231,12 @@ type ActorType = (typeof ActorType)[keyof typeof ActorType];
 const systemActor = (type: ActorType, name: string): string => `sys:${type}:${name}`;
 
 type Logger = { info: (data: object, message: string) => void };
-type UseCaseContext = Readonly<{ actorId: string; log: Logger }>;
+type ServiceContext = Readonly<{ actorId: string; log: Logger }>;
 type UsersRepository = {
   setBlocked: (id: string, blocked: boolean, actorId?: string) => Promise<number>;
 };
 
-const blockUser = async (context: UseCaseContext, users: UsersRepository, userId: string) => {
+const blockUser = async (context: ServiceContext, users: UsersRepository, userId: string) => {
   const { actorId, log } = context;
   const updated = await users.setBlocked(userId, true, actorId);
   log.info({ userId, updated }, 'user blocked');
@@ -257,7 +257,7 @@ const log = logger.child({ jobId: job.id });
 await blockUser({ actorId, log }, users, job.data.userId);
 ```
 
-The same use case runs over HTTP, WebSocket or a queue, and a test passes a
+The same service runs over HTTP, WebSocket or a queue, and a test passes a
 fake context. Other shapes are a closure (partial application) and constructor
 injection. The plain `node:http` form is in
 [references/propagation.md](references/propagation.md).

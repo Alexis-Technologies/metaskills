@@ -5,7 +5,7 @@ level:
 
 | Level                | Tool                         | Scope                                     |
 | -------------------- | ---------------------------- | ----------------------------------------- |
-| Unit                 | Vitest                       | Pure functions, domain logic, use cases   |
+| Unit                 | Vitest                       | Pure functions, domain logic, services    |
 | Integration          | Vitest                       | Modules against a real DB, Fastify inject |
 | Component (frontend) | Vitest + `@vue/test-utils`   | Vue 3 components in isolation             |
 | E2E                  | Playwright                   | Full user flows through the SPA and API   |
@@ -34,7 +34,7 @@ A separate `vitest.integration.config.ts` includes only
 
 ## AAA with an injected clock and id
 
-The use case takes its collaborators, so the test needs no global mocks.
+The service takes its collaborators, so the test needs no global mocks.
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';

@@ -223,7 +223,7 @@ test('session expires after ttl', async (t) => {
 });
 ```
 
-App: a route through `inject`, with AAA and a fake use case.
+App: a route through `inject`, with AAA and a fake service.
 
 ```ts
 import Fastify from 'fastify';
@@ -239,7 +239,7 @@ describe('GET /users/:id', () => {
     await app?.close();
   });
 
-  it('should return the user found by the use case', async () => {
+  it('should return the user found by the service', async () => {
     // Arrange
     const users = { get: vi.fn(async (id: string) => ({ id, name: 'Marcus' })) };
     app = Fastify();

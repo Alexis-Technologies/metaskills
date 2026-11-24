@@ -13,7 +13,7 @@ configuration, and metaprogramming only in infrastructure.
 |        | Library `@alexify/*`                             | App (`auth8`)                                    |
 | ------ | ------------------------------------------------ | ------------------------------------------------ |
 | Shape  | Flat `src/`: system classes and pure functions   | Onion + DDD, see `node-layered-architecture`     |
-| Domain | None; the driver and policies are injected       | Aggregates guard invariants, use cases orchestrate |
+| Domain | None; the driver and policies are injected       | Aggregates guard invariants, services orchestrate |
 | Data   | Plain records and `Map`s                         | One repository per aggregate over the native driver |
 
 ## Decision guide
@@ -21,8 +21,8 @@ configuration, and metaprogramming only in infrastructure.
 | Part of the app | Default style | Avoid |
 | --- | --- | --- |
 | System code: transport, connection, stream, pool, queue, cache, buffer, data structure | Class with `#private` state, methods, a private emitter, `Symbol.dispose` | Deep hierarchies, mixins |
-| Domain: aggregates, value objects, invariants | Aggregate root with methods that guard its invariants; pure calculation functions; throw domain errors | Rules repeated in use cases; aggregates that touch other aggregates; `request`/`reply` inside domain |
-| Application: use cases | Short `async` function: load the aggregate, call it, save it, publish events | Business rules in the use case; driver calls |
+| Domain: aggregates, value objects, invariants | Aggregate root with methods that guard its invariants; pure calculation functions; throw domain errors | Rules repeated in services; aggregates that touch other aggregates; `request`/`reply` inside domain |
+| Application: services | Short `async` method: load the aggregate, call it, save it, publish events | Business rules in the service; driver calls |
 | Data transformation: parse, map, validate, report | Pure functions, `pipe`, loops in `src/` | Mutating inputs, array iteration methods in `src/` |
 | IO edges: fs, net, db, timers, console | `async` functions at the boundary, IO passed in as dependencies; `.then` chains where they read better | IO calls scattered through the core |
 | Configuration, routing, workflows, rules, schemas | Declarative data + small interpreter (DSL) | Behavior hard-coded in `if` chains; `eval` |
@@ -34,7 +34,7 @@ configuration, and metaprogramming only in infrastructure.
 A stream or connection really is state + OS handle + behavior + events, so
 encapsulation fits. A domain invariant ("a written-off batch never changes")
 belongs to the aggregate that owns the data: it is a method there, never a
-check copied into use cases. A rule that spans aggregates goes to a domain
+check copied into services. A rule that spans aggregates goes to a domain
 service, and repositories and routes stay thin adapters around all of it.
 
 ## Rules
@@ -48,14 +48,14 @@ General:
 - Pass dependencies as arguments (function params, constructor params, or a
   frozen context object); do not reach for module-level globals.
 - Prefer the simplest construct: function, record, closure, then class.
-- Keep business logic framework-agnostic: one use case serves a Fastify
+- Keep business logic framework-agnostic: one service serves a Fastify
   route, a BullMQ worker and a `@alexify/wrpc` procedure.
 
 Domain:
 
 - Model each aggregate with one root that owns its invariants; other code
   changes it only through its methods. Reference other aggregates by id.
-- A use case orchestrates: it loads an aggregate through a repository
+- A service orchestrates: it loads an aggregate through a repository
   interface, calls it, saves it. Pattern choice: `node-architecture-styles`.
 - Keep stable shapes (same keys and order, `null` for empty references) for
   records that cross layers.
@@ -140,7 +140,7 @@ Native contracts:
 
 ## Patterns
 
-System object, aggregate, repository and use case side by side. In a real
+System object, aggregate, repository and service side by side. In a real
 app each part lives in its own layer:
 
 ```js
@@ -227,7 +227,7 @@ const createBatchRepository = (collection) => ({
   },
 });
 
-// Application: the use case orchestrates and holds no business rule
+// Application: the service orchestrates and holds no business rule
 const writeOffExpired = async ({ batches }, { before }) => {
   const expired = await batches.findExpired(before);
   let count = 0;
@@ -367,7 +367,7 @@ More: the same task in a dozen styles with trade-offs in
 - Inheritance chains for code reuse (`AdminUser extends User extends
   Entity`) - compose. `class Purchase extends EventEmitter` - a private
   emitter.
-- Anemic aggregate: plain data with every rule in the use cases, so the
+- Anemic aggregate: plain data with every rule in the services, so the
   same invariant is checked in several places, or not at all.
 - Mixins assembled at runtime (`Object.assign(point, Movable, Clonable)`) -
   explicit composition; stable shapes.

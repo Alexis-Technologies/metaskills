@@ -13,7 +13,7 @@ src/
   modules/accounts/
     index.ts                         public API and composition root of the module
     domain/                          aggregate, value rules, constants, types, repository interface
-    app/                             ports, types, service, sign-in use case
+    app/                             ports, types, service
     infra/                           collection, repository, password hasher
     presentation/                    route schemas, routes
     */tests/, tests/fakes.ts         tests next to the code
@@ -256,48 +256,21 @@ export type AccountsDeps = {
 export type Credentials = { login: string; password: string };
 ```
 
-Sign-in has several steps and its own failure cases, so it is a use case:
-
-```ts
-// src/modules/accounts/app/sign-in.use-case.ts
-import { DomainError } from '#shared/domain/domain-error.ts';
-
-import { normalizeLogin } from '../domain/credentials.ts';
-import type { AccountsDeps, Credentials } from './accounts.types.ts';
-
-type SignInDeps = Pick<AccountsDeps, 'repository' | 'hasher' | 'sessions' | 'dummyHash'>;
-
-export const createSignIn = ({ repository, hasher, sessions, dummyHash }: SignInDeps) => {
-  return async ({ login, password }: Credentials) => {
-    const account = await repository.findByLogin(normalizeLogin(login));
-    const hash = account ? account.passwordHash : dummyHash;
-    const isMatch = await hasher.verify(password, hash);
-    if (!account || !isMatch) throw new DomainError('Wrong credentials', 'EAUTH');
-    account.ensureCanSignIn();
-    const token = await sessions.start({ accountId: account.id });
-    return { token };
-  };
-};
-```
-
-`signIn` runs the hash for an unknown login too, so response time does not tell
-which logins exist. The blocked check comes after the password check for the
-same reason.
-
-The service is the facade of the module. It keeps the short operations and
-delegates sign-in to the use case:
+The service is the facade of the module, and each of its methods is one
+operation. A larger module has several services, split by aggregate or
+responsibility:
 
 ```ts
 // src/modules/accounts/app/accounts.service.ts
 import type { Session } from '#shared/app/access.ts';
+import { DomainError } from '#shared/domain/domain-error.ts';
 
 import { Account } from '../domain/account.ts';
 import { checkPassword, normalizeLogin } from '../domain/credentials.ts';
 import type { AccountsDeps, Credentials } from './accounts.types.ts';
-import { createSignIn } from './sign-in.use-case.ts';
 
 export const createAccountsService = (deps: AccountsDeps) => {
-  const { repository, hasher, logger, createId } = deps;
+  const { repository, hasher, sessions, logger, createId, dummyHash } = deps;
 
   const register = async ({ login, password }: Credentials) => {
     const normalized = normalizeLogin(login);
@@ -309,13 +282,27 @@ export const createAccountsService = (deps: AccountsDeps) => {
     return { id: account.id };
   };
 
+  const signIn = async ({ login, password }: Credentials) => {
+    const account = await repository.findByLogin(normalizeLogin(login));
+    const hash = account ? account.passwordHash : dummyHash;
+    const isMatch = await hasher.verify(password, hash);
+    if (!account || !isMatch) throw new DomainError('Wrong credentials', 'EAUTH');
+    account.ensureCanSignIn();
+    const token = await sessions.start({ accountId: account.id });
+    return { token };
+  };
+
   const getProfile = async (session: Session) => ({ accountId: session.accountId });
 
-  return Object.freeze({ register, signIn: createSignIn(deps), getProfile });
+  return Object.freeze({ register, signIn, getProfile });
 };
 
 export type AccountsService = ReturnType<typeof createAccountsService>;
 ```
+
+`signIn` runs the hash for an unknown login too, so response time does not tell
+which logins exist. The blocked check comes after the password check for the
+same reason.
 
 ### Infra
 

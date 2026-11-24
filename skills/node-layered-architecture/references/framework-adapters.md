@@ -8,7 +8,7 @@ lives in the `presentation/` folder of its module.
 
 Rules for every adapter:
 
-- Read input once, build plain arguments, call the use case, write the result.
+- Read input once, build plain arguments, call the service, write the result.
   Nothing else.
 - Do not pass `request`, `reply`, a socket, a job or a framework instance past
   the adapter, not even "just for headers".
@@ -101,7 +101,7 @@ access decision on that throw, and in tests assert the value is unchanged.
 ## BullMQ worker
 
 A worker is Presentation too: the job is its transport object. It validates the
-payload, because a queue is a process boundary, and calls the same use case.
+payload, because a queue is a process boundary, and calls the same service.
 
 ```ts
 import { Worker } from 'bullmq';
@@ -119,7 +119,7 @@ export const createExpireSessionsWorker = ({ connection, expireSessions, logger 
 ```
 
 Whoever creates the worker closes it (`await worker.close()`) on shutdown
-(`node-graceful-shutdown`). Jobs are retried, so the use case must be idempotent.
+(`node-graceful-shutdown`). Jobs are retried, so the service method must be idempotent.
 
 ## wRPC procedure
 
@@ -140,7 +140,7 @@ const createRouter = ({ auth }) =>
   });
 ```
 
-The procedure is an adapter too: it reads its arguments, calls the same use case
+The procedure is an adapter too: it reads its arguments, calls the same service
 and returns the result. Sessions, rooms and subscriptions are in
 `node-websocket-realtime`.
 
@@ -169,15 +169,15 @@ Each step is shippable, so run the tests after each one.
 3. Give each business context a `modules/<name>/` folder with an `index.ts`
    plugin, and move its routes and service there unchanged
    ([modules.md](modules.md)).
-4. Pick one route. Move its body into the service or a use case that takes plain
-   data and returns plain data. The handler becomes: read input, call, return.
+4. Pick one route. Move its body into a service method that takes plain data
+   and returns plain data. The handler becomes: read input, call, return.
    Read decorators exactly once, here.
 5. Replace imports of db, config and logger inside that module with factory
    parameters. Create the instances in the module's `index.ts`.
 6. Move driver calls into a repository with a small interface (`findByLogin`,
    `save`). The interface belongs to `domain/`, the implementation to `infra/`.
-   The use case talks to the interface.
-7. Move the rules into the aggregate, so the use case only orchestrates.
+   The service talks to the interface.
+7. Move the rules into the aggregate, so the service only orchestrates.
 8. Introduce domain errors with codes and one `setErrorHandler`. Remove
    `reply.code(...)` and `httpErrors` from non-adapter code.
 9. Repeat for other routes.
@@ -185,7 +185,7 @@ Each step is shippable, so run the tests after each one.
 11. A second transport (queue worker, wRPC, CLI) is now a new adapter file.
 
 Signals that a step is not finished: a function outside Presentation has a
-parameter named `request` or `reply`; a use case imports `fastify`, `mongodb`,
+parameter named `request` or `reply`; a service imports `fastify`, `mongodb`,
 config or a logger package; a test needs an HTTP server to check a business rule.
 
 ## Adapter test

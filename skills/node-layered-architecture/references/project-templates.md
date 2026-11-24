@@ -15,7 +15,7 @@ src/
     <name>/
       index.ts            public API and composition root of the module
       domain/             aggregates, value rules, events, repository interfaces
-      app/                services, use cases, ports
+      app/                services, ports
       infra/              repositories, collections, migrations, clients
       presentation/       routes, schemas, workers, wRPC procedures
       tests/              fakes shared by the tests of the module

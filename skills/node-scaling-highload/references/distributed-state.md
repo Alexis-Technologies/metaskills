@@ -182,7 +182,7 @@ parts, or on an integer `jobId`.
 - Delivery is at-least-once: a stalled job runs again. `sendOnce` must be idempotent.
 - Queue names and payload types live in shared infrastructure. Payloads come from the metaschema
   contract (`js-contracts-schemas`).
-- Enqueueing sits behind an Application port, so a use case depends on a job scheduler, not on BullMQ.
+- Enqueueing sits behind an Application port, so a service depends on a job scheduler, not on BullMQ.
 - Shut down with `await worker.close()`, which waits for active jobs, and `await queue.close()`.
 - Do not chain synchronous calls across services as a pseudo-transaction. Use a saga (each step has a
   compensation), or keep the invariant inside one aggregate and one transaction.

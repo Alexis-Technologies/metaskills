@@ -89,7 +89,7 @@ operation. A default of "wait forever" turns one slow dependency into a hung ser
 
 ```text
 Domain          repository interfaces, aggregates, invariants
-Application     use cases, transaction boundaries, the actor and tenant context
+Application     services, transaction boundaries, the actor and tenant context
 Infrastructure  dal/ (connection, base repository, mapper, errors, transaction)
                 repositories/ (one per aggregate, implements the Domain interface)
 ```

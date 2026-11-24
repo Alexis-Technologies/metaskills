@@ -350,7 +350,7 @@ console.log(`${price}`, +price, JSON.stringify({ price }));
 ## Result container (expected failures as values)
 
 Use in FP-style pipelines or system code with explicit error contracts;
-aggregates and use cases throw domain errors instead. `map` and `chain` here
+aggregates and services throw domain errors instead. `map` and `chain` here
 are methods of the container, not array iteration.
 
 ```js

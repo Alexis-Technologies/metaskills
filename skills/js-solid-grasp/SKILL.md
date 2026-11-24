@@ -54,7 +54,7 @@ A JS contract includes behaviour that type checkers do not see:
 - Prefer a module of functions or a closure when there is no per-instance
   state or lifecycle; use a class for many instances with shared methods,
   `#private` state, or a lifecycle (open/close).
-- Aim for medium granularity: no 20 classes per use case, no interface per
+- Aim for medium granularity: no 20 classes per operation, no interface per
   method, no abstract classes that only throw. "Make it SOLID" never means
   `instanceof` chains, `setPrototypeOf`, mixins or a class per verb.
 - Violate a principle only consciously, and compensate with tests or schemas.
@@ -104,7 +104,7 @@ A JS contract includes behaviour that type checkers do not see:
   never attach a created object to someone else's instance (a logger glued
   onto a socket outlives its creator).
 - **Controller**: one entry point per request/command converts transport
-  (HTTP, WebSocket, CLI, queue) into a use-case call: parse, validate,
+  (HTTP, WebSocket, CLI, queue) into a service call: parse, validate,
   authorize, serialize. In an app this is a Fastify route handler. After it,
   domain code is linear and transport-free.
 - **Pure Fabrication**: persistence, serialization, caching, queues and
@@ -246,7 +246,7 @@ const file = { filename: 'b.txt', readable: Readable.from(['data']) };
 console.log(listNames([{ filename: 'a.txt' }, file]), await attach(file));
 ```
 
-### DIP: use case owns contracts, the plugin tree wires implementations
+### DIP: the service owns contracts, the plugin tree wires them
 
 ```ts
 // app/accounts.ports.ts: imports nothing from infra
@@ -265,11 +265,11 @@ export interface Logger {
   warn(message: string): void;
 }
 
-// app/sign-in.use-case.ts: dummyHash keeps the timing of an unknown login
-type SignInDeps = { accounts: Accounts; hasher: Hasher; logger: Logger; dummyHash: string };
+// app/accounts.service.ts: dummyHash keeps the timing of an unknown login
+type AccountsDeps = { accounts: Accounts; hasher: Hasher; logger: Logger; dummyHash: string };
 
-export const createSignIn = ({ accounts, hasher, logger, dummyHash }: SignInDeps) => {
-  return async (login: string, password: string) => {
+export const createAccountsService = ({ accounts, hasher, logger, dummyHash }: AccountsDeps) => {
+  const signIn = async (login: string, password: string) => {
     const account = await accounts.findByLogin(login);
     const hash = account ? account.hash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
@@ -278,11 +278,12 @@ export const createSignIn = ({ accounts, hasher, logger, dummyHash }: SignInDeps
     else logger.warn('Sign-in failed');
     return isValid;
   };
+  return Object.freeze({ signIn });
 };
 ```
 
 ```ts
-// index.ts of the module: wiring only; the sole place that knows implementations
+// the module's index.ts: wiring only, the one place that knows implementations
 import fp from 'fastify-plugin';
 
 export default fp(
@@ -290,17 +291,16 @@ export default fp(
     const accounts = createMongoAccounts(fastify.mongo.db);
     const hasher = createScryptHasher();
     const dummyHash = await hasher.hash('dummy');
-    const signIn = createSignIn({ accounts, hasher, logger: fastify.log, dummyHash });
-    fastify.decorate('signIn', signIn);
+    const service = createAccountsService({ accounts, hasher, logger: fastify.log, dummyHash });
+    fastify.decorate('accounts', service);
   },
-  { name: 'sign-in', dependencies: ['mongodb'] },
+  { name: 'accounts', dependencies: ['mongodb'] },
 );
 ```
 
 Deliver dependencies by factory or constructor arguments, options, or a
 revealing constructor (`new Writable({ write })`). Never assign them from
-outside: a swap in the middle of an async operation splits logs or loses audit
-records. Containers and service locators: `node-layered-architecture`.
+outside: a swap mid-operation splits logs or loses audit records. Containers and service locators: `node-layered-architecture`.
 
 ## Anti-patterns
 

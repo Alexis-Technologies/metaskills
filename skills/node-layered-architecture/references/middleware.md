@@ -31,7 +31,7 @@ result.
    ```
 
    Now every other place must check `reply.sent` before writing. Use the
-   server's `requestTimeout`, or pass `AbortSignal.timeout(ms)` to the use case.
+   server's `requestTimeout`, or pass `AbortSignal.timeout(ms)` to the service.
 
 2. Races on shared state. All concurrent requests run in one process. A value
    written by a hook into an outer scope is overwritten by the next request
@@ -75,7 +75,7 @@ result.
    them.
 
 7. Lock-in. When the application structure is the framework contract, moving a
-   use case to a queue, wRPC or a CLI means rewriting business code.
+   service to a queue, wRPC or a CLI means rewriting business code.
 
 Named anti-patterns behind these failures: pass-through parameters, accumulate
 and fire, temporary field, mixins, inappropriate intimacy, high coupling, fat
@@ -84,11 +84,11 @@ controller, fat model, global and module-level mutable state.
 ## The rule that fixes most of it
 
 `request`, `reply` and sockets never go past the handler. The handler receives
-the request, calls a use case with plain data, receives plain data and returns
+the request, calls a service with plain data, receives plain data and returns
 it. Everything behind it is a layer that does not know there is a network.
 
 A signal that layers are missing: logic keeps moving between the handler and the
-repository. Introduce a use case and put the rule in the aggregate.
+repository. Introduce a service and put the rule in the aggregate.
 
 ## Declared decorators are fine
 
@@ -104,7 +104,7 @@ fastify.get('/sessions', async (request) => {
 ```
 
 What makes this safe: the field is declared, so its shape is stable; one plugin
-owns it; only the handler reads it; the use case receives a plain argument and
+owns it; only the handler reads it; the service receives a plain argument and
 stays testable without Fastify.
 
 ## What to use instead
@@ -115,12 +115,12 @@ stays testable without Fastify.
 | auth / session loader | a generic hook that sets a declared decorator; the route declares `access` |
 | permission checks per route | declarative `access`, then `@alexify/kerberos` for resources (`node-access-control`) |
 | validation step | the route `schema` through the metaschema compiler (`js-contracts-schemas`) |
-| request logger | Fastify's Pino request logging; use cases get an injected logger |
+| request logger | Fastify's Pino request logging; services get an injected logger |
 | error-handling step | one `setErrorHandler` mapping domain codes to statuses |
 | CORS, security headers, compression, rate limit | `@fastify/cors`, `@fastify/helmet`, `@fastify/rate-limit` |
-| per-request DB transaction | the use case opens it through an injected unit of work, only across aggregates |
+| per-request DB transaction | the service opens it through an injected unit of work, only across aggregates |
 | response caching | an application service with an injected cache, or HTTP caching headers set by the route |
-| token refresh "interceptor" | an explicit step in the auth use case |
+| token refresh "interceptor" | an explicit step in the auth service |
 | correlation id for logs | `request.id`; `AsyncLocalStorage` only for infrastructure logging (`node-async-context`) |
 
 ## What may stay in a hook

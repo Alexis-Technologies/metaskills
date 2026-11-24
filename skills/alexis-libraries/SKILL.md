@@ -220,7 +220,7 @@ A realtime write in an app:
 1. `wrpc` receives the call and checks the session.
 2. A `preValidation` hook asks `kerberos`.
 3. The metaschema `Schema` passed as `input` validates and applies defaults.
-4. The handler calls the use case. The aggregate enforces invariants.
+4. The handler calls the service. The aggregate enforces invariants.
 5. The DAL maps with `toDocument`, guards updates with `checkUpdate` and filters on `rev`.
 6. `mailer` enqueues into the outbox in the same transaction.
 7. `migronaut` owns the indexes and validators of those collections.

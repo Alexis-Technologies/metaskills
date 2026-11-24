@@ -47,7 +47,7 @@ Layout, file names, enforcement, extraction: [references/modules.md](references/
 | Layer, folder | Holds | May use | Must not see |
 | ------------- | ----- | ------- | ------------ |
 | Domain `domain/` | aggregates, entities, value objects, domain events, repository **interfaces**, error codes | domain, `#shared/domain` | I/O, HTTP statuses, driver, framework |
-| Application `app/` | services, use cases, DTOs, ports | domain | `request`/`reply`, Fastify, drivers, config |
+| Application `app/` | services, DTOs, ports | domain | `request`/`reply`, Fastify, drivers, config |
 | Infrastructure `infra/` | repositories over the DAL, collections, migrations, Redis, BullMQ, undici clients, hasher | app ports, domain, OS, npm | routes |
 | Presentation `presentation/` | routes, `@alexify/wrpc` procedures, queue workers, CLI | app **only** | domain internals, drivers |
 | Composition root | `index.ts` of a module, `app.ts`, `main.ts` | everything | |
@@ -61,14 +61,14 @@ enforces the module boundaries.
 - One kind per file, prefixed by the aggregate in the plural:
   `users.types.ts`, `users.constants.ts`, `users.helpers.ts`,
   `users.repository.ts`, `users.service.ts`, `users.routes.ts`. A class file
-  is named after its class (`user.ts`), a use case after its action
-  (`sign-up.use-case.ts`).
+  is named after its class (`user.ts`).
 - Types, constants, interfaces and helpers never share a file with logic. Add
   such a file when it has content, not as a placeholder. Several files of one
   kind become a folder with an `index.ts`: `helpers/index.ts`.
-- A service is the facade over the short operations of the module. An
-  operation with several steps or ports becomes a use case, and the service
-  delegates to it.
+- `app/` holds services only, one or several per module
+  (`accounts.service.ts`, `sessions.service.ts`), each method one operation.
+  A service that outgrows a screen splits into another service by aggregate or
+  responsibility.
 - The repository implementation is `infra/users.repository.ts` (or
   `users.dal.ts`), without the driver in its name.
 - Helpers are pure: no I/O, no business rule. A rule belongs to the aggregate
@@ -82,9 +82,9 @@ enforces the module boundaries.
 - Keep `request`, `reply`, sockets and framework objects inside Presentation.
   A handler reads input once, calls the service with plain data, returns the
   result. Nothing past it has a `request` parameter.
-- Invariants live in the aggregate, not in use cases. A use case orchestrates:
-  load through a repository interface, call the aggregate, save, publish
-  events. Use domain events for communication across aggregates and modules.
+- Invariants live in the aggregate, not in services. A service method
+  orchestrates: load through a repository interface, call the aggregate, save,
+  publish events. Use domain events for communication across aggregates and modules.
 - One repository per aggregate. Its interface is in `domain/`, its
   implementation in `infra/`, built on the DAL (`packages/node/src/dal` in
   `auth8`). Nothing above `infra/` imports `mongodb`.
@@ -131,8 +131,7 @@ src/
       index.ts                 public API: plugin, facade, contract types
       domain/                  account.ts, accounts.constants.ts, accounts.types.ts,
                                accounts.repository.ts (interface), tests/
-      app/                     accounts.ports.ts, accounts.service.ts,
-                               sign-in.use-case.ts, tests/
+      app/                     accounts.ports.ts, accounts.service.ts, tests/
       infra/                   accounts.collection.ts, accounts.repository.ts, tests/
       presentation/            accounts.routes.ts, accounts.schemas.ts, tests/
       tests/fakes.ts           fakes shared by the tests of the module
@@ -142,7 +141,7 @@ src/
 Full runnable code of every file: [references/example-app.md](references/example-app.md).
 Monorepo and library layouts: [references/project-templates.md](references/project-templates.md).
 
-### Repository interface and use case
+### Repository interface and service
 
 ```ts
 // modules/accounts/domain/accounts.repository.ts: imports only domain
@@ -153,9 +152,11 @@ export interface AccountsRepository {
 ```
 
 ```ts
-// modules/accounts/app/sign-in.use-case.ts: depends on domain and on its own ports
-export const createSignIn = ({ repository, hasher, sessions, dummyHash }: SignInDeps) => {
-  return async ({ login, password }: Credentials) => {
+// modules/accounts/app/accounts.service.ts: depends on domain and on its own ports
+export const createAccountsService = (deps: AccountsDeps) => {
+  const { repository, hasher, sessions, dummyHash } = deps;
+
+  const signIn = async ({ login, password }: Credentials) => {
     const account = await repository.findByLogin(normalizeLogin(login));
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
@@ -164,6 +165,8 @@ export const createSignIn = ({ repository, hasher, sessions, dummyHash }: SignIn
     const token = await sessions.start({ accountId: account.id });
     return { token };
   };
+
+  return Object.freeze({ signIn });
 };
 ```
 
@@ -271,7 +274,7 @@ Do not rewrite. Per route, in shippable steps (details in
    by omission.
 2. Give each business context a `modules/<name>/` folder with an `index.ts`
    plugin, and move its routes and service there unchanged.
-3. Move the handler body into the service or a use case that takes plain data;
+3. Move the handler body into a service method that takes plain data;
    the route reads declared decorators once and passes them as arguments.
 4. Move the rules into the aggregate, and driver calls into a repository
    behind an interface in `domain/`.
@@ -291,7 +294,7 @@ The ordered path, with the coupling each step removes:
 | Layer folders at the top for every context | one feature spreads over four folders; deleting or extracting it starts with a search | a folder per module, layers inside |
 | A deep import into another module, or a read of its collection | the modules cannot be deleted or extracted apart | the facade through `#modules/<name>`, events |
 | Types, constants and helpers in the file with the logic | changes collide, the file has no single reason to change | one kind per file |
-| Transaction Script or anemic layered MVC | rules leak into services, invariants scatter | aggregates + use cases |
+| Transaction Script or anemic layered MVC | rules leak into services, invariants scatter | aggregates + thin services |
 | Business logic in hooks | implicit order, nobody owns the request | hooks stay generic, logic in services |
 | Module-level request state (`let currentUserId`) | concurrent requests overwrite it between `await`s | an explicit argument |
 | Imports of `db`, `config`, `logger` in every file | one implementation, singletons, init-order bugs | composition roots + factories |
@@ -310,7 +313,7 @@ Why hooks are constrained, with failure examples and a replacement table:
       refused at run time.
 - [ ] No file outside Presentation has a `request`/`reply` parameter or imports
       `fastify`; oxlint enforces the layer rules and `import/no-cycle`.
-- [ ] Invariants live in aggregates; services and use cases only orchestrate.
+- [ ] Invariants live in aggregates; services only orchestrate.
 - [ ] One repository per aggregate, interface in `domain/`, native driver in
       `infra/`; `rev` guards read-modify-write.
 - [ ] Types, constants and helpers have their own files; types use `import type`.

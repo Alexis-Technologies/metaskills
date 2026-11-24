@@ -43,7 +43,7 @@ export const systemActor = (type: ActorType, name: string): string => `sys:${typ
 // systemActor(ActorType.Job, 'audit-log-rollup') === 'sys:job:audit-log-rollup'
 ```
 
-Pass the actor through the use case in the repository context. Do not read it from a global.
+Pass the actor through the service in the repository context. Do not read it from a global.
 
 ## Enums
 

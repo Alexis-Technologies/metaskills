@@ -70,7 +70,7 @@ class DomainError extends Error {
 - Bugs and unexpected states throw. Expected business outcomes throw one
   `DomainError` class that the boundary maps.
 - Result or Either types are fine inside one FP-style module or integration
-  point. Do not thread them through handler, use case, and repository.
+  point. Do not thread them through handler, service, and repository.
 - In hot system code (parsers, protocol loops, per-item library calls) prefer
   returning error values. In application code throwing is fine. Measure first.
 - Fail fast: validate at the top of a function and leave immediately.

@@ -61,7 +61,7 @@ const changeEmail = (user, email) => {
 const formatUser = ({ name, login, email }) =>
   `User: ${login} (${name}) <${email}>`;
 
-// Use case wires the pieces
+// The service wires the pieces
 const updateEmail = async ({ storage, id, email }) => {
   const user = await storage.read(id);
   const updated = changeEmail(user, email);
@@ -80,7 +80,7 @@ Caveats:
 - A `User` of the system (login, password) and an `Employee` of the HR
   domain are different entities even if they share a person.
 - An employee does not "transfer itself" to another department: operations
-  that change several aggregates belong to a domain service or use case.
+  that change several aggregates belong to a domain service or an application service.
 - Do not over-split. Medium granularity is cheaper to read and maintain
   than one class per verb.
 - Function-level SRP: isolate input normalization (`fromTuple`,
@@ -336,7 +336,7 @@ Caveats:
 
 ## DIP
 
-In JS: high-level modules (domain, use cases) and low-level modules
+In JS: high-level modules (domain, services) and low-level modules
 (storage, logger, transport) both depend on contracts; the contract is
 owned by the higher level (the caller), not by the provider. Arrows in the
 dependency diagram point up to the contracts; only stable platform
@@ -550,7 +550,7 @@ After it, domain execution is as linear as possible. GoF Facade, Command
 and layer isolation are related.
 
 In an app the controller is a Fastify route handler (the Presentation layer).
-Use cases are created in the plugin tree and arrive as decorators:
+Services are created in the plugin tree and arrive as decorators:
 
 ```js
 const fp = require('fastify-plugin');
@@ -587,9 +587,9 @@ without a change.
 
 Fastify rules:
 
-- Route handlers are controllers: read params and body, call a use case with
+- Route handlers are controllers: read params and body, call a service with
   plain arguments, return the result. Validation comes from the route schema.
-- Register use cases with `fastify-plugin` and declared `dependencies`, so
+- Register services with `fastify-plugin` and declared `dependencies`, so
   the plugin tree is the composition root. Do not import a repository in a
   route file.
 - A hook may set a request field only when `decorateRequest` declares it. The
@@ -766,7 +766,7 @@ fastify.addHook('onResponse', async (request) => {
 ```
 
 After: the field is declared by the plugin that owns it. Per-request values
-reach use cases only as arguments:
+reach services only as arguments:
 
 ```js
 const fp = require('fastify-plugin');

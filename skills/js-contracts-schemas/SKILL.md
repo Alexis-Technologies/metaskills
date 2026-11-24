@@ -190,7 +190,7 @@ app.post('/signup', { schema: { body: SignUp } }, async (request) => createAccou
 
 ### Portable contract runner
 
-The same idea for a queue consumer, an RPC dispatcher or a use case:
+The same idea for a queue consumer, an RPC dispatcher or a service:
 
 ```js
 const { Schema } = require('@alexify/metaschema');

@@ -215,7 +215,7 @@ const router = defineRouter(units, { hooks: { preValidation: authorize } });
 The hook passes no record attributes, so it can only answer the boundary question. A procedure with
 no `meta.authz` is refused for every session, including a bare function.
 
-### Record and field checks in a use case
+### Record and field checks in a service
 
 ```js
 const PATIENT_FIELDS = ['name', 'diagnosis', 'discount'];

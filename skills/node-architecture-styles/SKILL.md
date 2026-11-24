@@ -15,7 +15,7 @@ this skill is the map and the decision guide.
 |              | Library `@alexify/*`                | App (`auth8`)                                    |
 | ------------ | ----------------------------------- | ------------------------------------------------ |
 | Style        | Flat `src/`, none of the below      | Onion + DDD, modular monolith                    |
-| Domain logic | Pure functions and system classes   | Aggregates with invariants, thin use cases       |
+| Domain logic | Pure functions and system classes   | Aggregates with invariants, thin services        |
 | Persistence  | Driver injected by the caller       | Native `mongodb`, own DAL, one repository per aggregate |
 | Consistency  | Caller's concern                    | Single document first, transactions across aggregates |
 
@@ -80,7 +80,7 @@ this skill is the map and the decision guide.
 ### Domain logic and persistence patterns
 
 - **Aggregate + Repository** is the default for business operations. The root
-  guards invariants, a use case loads it, calls it and saves it. Code:
+  guards invariants, a service loads it, calls it and saves it. Code:
   [references/ddd-building-blocks.md](references/ddd-building-blocks.md).
 - **Transaction Script is rejected for non-trivial code** (auth8 ADR-003):
   logic leaks into services, invariants scatter, and the code couples to the
@@ -152,7 +152,7 @@ this skill is the map and the decision guide.
 | New product, 1-3 teams | modular monolith, Onion + DDD | microservices |
 | One module CPU-bound or bursty | worker threads or separate process behind the same contract | rewrite as N services |
 | Separate team needs own release cycle | extract that module as a service | splitting everything |
-| CRUD-heavy back office | thin use cases over a repository, small aggregates | event sourcing |
+| CRUD-heavy back office | thin services over a repository, small aggregates | event sourcing |
 | Trivial read-only path | route + repository | a full aggregate |
 | Complex invariants on a cluster of objects | Aggregate + Repository, one document | Active Record, Transaction Script |
 | Rule spans two aggregates | domain service + replica-set transaction | merging them into one document |
@@ -257,9 +257,9 @@ choreography: [references/cqrs-es-saga.md](references/cqrs-es-saga.md).
 
 ## Inside the Alexis stack
 
-- A module of the monolith exposes its use cases through one `fastify-plugin`
+- A module of the monolith exposes its services through one `fastify-plugin`
   (a facade). Do not inject another module's repository.
-- Fastify routes translate HTTP to a use-case call and back; the use case never
+- Fastify routes translate HTTP to a service call and back; the service never
   sees `request` or `reply` (`node-layered-architecture`).
 - Messaging (BullMQ, wRPC brokers): wrap it in a port (`publish(event)`,
   `subscribe(type, handler)`) so domain code and tests use an in-memory
@@ -298,7 +298,7 @@ choreography: [references/cqrs-es-saga.md](references/cqrs-es-saga.md).
       collections; no imports of another module's internals.
 - [ ] Each extracted service has a measurable reason, its own data, timeouts,
       idempotent retries and no synchronous call chains on the hot path.
-- [ ] Non-trivial use cases go through aggregates; no Transaction Script.
+- [ ] Non-trivial operations go through aggregates; no Transaction Script.
 - [ ] Value objects replace raw primitives for money, email, ids, ranges.
 - [ ] Aggregates are single documents where possible and reference others by id.
 - [ ] Transactions appear only across aggregates, and their callbacks do

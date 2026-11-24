@@ -9,8 +9,8 @@ keeps the app working and makes the next one possible.
 | 2. Module | one context spread over the app | a `modules/<name>/` folder with an `index.ts` plugin; routes and service move in unchanged |
 | 3. Thin handler | handler knows the rules | the body moves into a function with plain arguments; the handler reads input and returns the result |
 | 4. Repository | driver calls repeated in handlers | one repository per aggregate over the DAL; the document shape stays there |
-| 5. Interface | use case bound to the driver | the repository interface moves into `domain/`; the implementation stays in `infra/` |
-| 6. Aggregate | rules scattered across use cases | invariants move into the aggregate root; the use case orchestrates |
+| 5. Interface | service bound to the driver | the repository interface moves into `domain/`; the implementation stays in `infra/` |
+| 6. Aggregate | rules scattered across services | invariants move into the aggregate root; the service orchestrates |
 | 7. Injection | imports of `db`, `logger`, `config` | factories with parameters, wired by the module's `index.ts` |
 | 8. Config | constants inside modules | `@fastify/env` or `env-schema` once; modules get their slice |
 | 9. Errors | HTTP inside services | domain error codes, one `setErrorHandler` |
@@ -56,8 +56,8 @@ fastify.post('/', { config: { access: 'session' }, schema: { body: Transfer } },
 ### 4, 5. Repository and its interface
 
 Introduce one repository per aggregate, not per collection. Keep query and
-document details there. Then declare the interface in `domain/` and make the use
-case depend on it:
+document details there. Then declare the interface in `domain/` and make the
+service depend on it:
 
 ```ts
 // modules/transfers/domain/accounts.repository.ts
@@ -73,10 +73,10 @@ stay behind the repository.
 
 ### 6. Move the rules into the aggregate
 
-A check that appears in two use cases is an invariant that lost its owner.
+A check that appears in two services is an invariant that lost its owner.
 
 ```ts
-// Before: in the use case
+// Before: in the service
 if (account.balance < amount) throw new DomainError('Insufficient funds', 'EFUNDS');
 account.balance -= amount;
 
@@ -86,7 +86,7 @@ account.withdraw(amount);
 
 ### 7, 8. Injection and config
 
-- Factories take dependencies: `createTransfers({ repository, events, logger })`.
+- Factories take dependencies: `createTransfersService({ repository, events, logger })`.
 - The module's `index.ts` builds them, decorates the facade and passes the
   service to its routes.
 - A transport that receives the whole config can read database passwords, which
@@ -120,9 +120,9 @@ lint stays green during the migration.
 ## Signals that a step is not finished
 
 - A function outside Presentation has a parameter named `request` or `reply`.
-- A use case imports `fastify`, `mongodb`, a config module or a logger package.
+- A service imports `fastify`, `mongodb`, a config module or a logger package.
 - A file reaches another module by a relative path, or by a deep
   `#modules/<name>/...` path.
 - A test needs an HTTP server to check a business rule.
-- A rule is checked in a use case and again in another one.
+- A rule is checked in one service and again in another one.
 - A route has no `access`.

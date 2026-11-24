@@ -21,7 +21,7 @@ all), and spreads infrastructure knowledge into every file. Rules:
 | ----- | ----- | -------- | ----- |
 | Callback / function argument | `server.shutdown(done)`, `new Server(log)` | one capability | grows into long parameter lists |
 | Constructor injection | `new Server({ logger, db })` | classes, stateful services, libraries | must thread deps through every constructor |
-| Closure factory (app default) | `export const createAuth = ({ accounts, logger }) => ({ ... })` | use cases, repositories | wiring code in plugins |
+| Closure factory (app default) | `export const createAuth = ({ accounts, logger }) => ({ ... })` | services, repositories | wiring code in plugins |
 | Factory of a config slice | `createRedis(config.redis)` | infrastructure modules | none |
 | Class factory | `const createServerClass = (deps) => class Server {}` | need a class bound to deps | unusual for readers |
 | Fastify decorator through `fastify-plugin` | `fastify.decorate('auth', createAuth(deps))` | the composition root of an app | Presentation only; do not read it in inner layers |
@@ -116,7 +116,7 @@ until the handler reads it. It never sits in a module-level variable.
 
 ```js
 const context = Object.freeze({ requestId: request.id, ip: request.ip, session });
-const result = await useCase(args, context);
+const result = await accounts.block(args, context);
 ```
 
 Three kinds of state in a server: call state (lives until the response),

@@ -168,12 +168,12 @@ const createOrderRepository = (collection) => ({
   `cuid`, `ulid`, timestamps and author stamps. Its schema comes from the single
   schema source (`js-contracts-schemas`).
 
-## Use case
+## Application service
 
 Orchestrates and holds no rule:
 
 ```js
-const createSubmitOrder = ({ orders, events }) => {
+const createOrdersService = ({ orders, events }) => {
   const submitOrder = async ({ orderId }) => {
     const order = await orders.findById(orderId);
     if (!order) throw new DomainError('Order not found', 'ENOTFOUND');

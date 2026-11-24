@@ -67,7 +67,7 @@ app.post('/signin', { config: { access: 'public' } }, signin);
   review them. List the ones that may be public in `publicPrefixes`: `/docs` covers `/docs/json`, not
   `/docs-private`. Anything else needs its own rule or must not be exposed.
 - `request.routeOptions.config` is the Fastify 5 API.
-- The boundary action is unconditional. Record rules run in the use case, with the loaded record.
+- The boundary action is unconditional. Record rules run in the service, with the loaded record.
 
 ## wrpc
 
@@ -217,5 +217,5 @@ const reportRoles = { name: 'report_roles', definitions: [{ name: 'REPORT_VIEWER
 
 ## Domain checks stay framework-free
 
-Record rules live in use cases and repositories that receive the identity as an argument. Tests need
+Record rules live in services and repositories that receive the identity as an argument. Tests need
 no HTTP server: pass a principal and a fake repository.

@@ -34,7 +34,6 @@ src/
         accounts.ports.ts          hasher, logger
         accounts.types.ts          deps and DTOs
         accounts.service.ts        facade over the operations
-        sign-in.use-case.ts
         tests/accounts.service.test.ts
       infra/
         accounts.collection.ts     collection and indexes
@@ -55,7 +54,7 @@ The code of every file is in [example-app.md](example-app.md).
 
 ## What a module owns
 
-- Its aggregates, use cases, services, ports and repositories.
+- Its aggregates, services, ports and repositories.
 - Its collections, their indexes and validators, and their migrations
   (`@alexify/migronaut`).
 - The `@alexify/kerberos` policies of its resources, its BullMQ processors, its
@@ -87,8 +86,7 @@ config, map errors and guard routes, in `src/plugins/`, and the shared kernel in
 | Repository interface | `accounts.repository.ts` | domain |
 | Domain events | `accounts.events.ts` | domain |
 | Ports | `accounts.ports.ts` | app |
-| Service | `accounts.service.ts` | app |
-| Use case | `sign-in.use-case.ts`, named after its action | app |
+| Service | `accounts.service.ts`, one or several per module | app |
 | Repository | `accounts.repository.ts`, or `accounts.dal.ts` | infra |
 | Collection and indexes | `accounts.collection.ts` | infra |
 | Routes, route schemas | `accounts.routes.ts`, `accounts.schemas.ts` | presentation |
@@ -112,13 +110,14 @@ config, map errors and guard routes, in `src/plugins/`, and the shared kernel in
 - The repository file does not name the driver. The folder already says it is
   infrastructure, and the driver may change.
 
-### Service and use case
+### Services
 
-A service is the facade of the module over the short operations of its
-aggregates. An operation with several steps, several ports or its own error
-cases gets its own `<action>.use-case.ts`, and the service delegates to it.
-Neither knows HTTP. A service that grows past one screen is the signal to move
-operations out into use cases.
+`app/` holds services only, one or several per module: `accounts.service.ts`,
+`sessions.service.ts`. A service is a factory over its ports, and each method is
+one operation: load through a repository, call the aggregate, save, publish
+events. It knows no HTTP. A service that outgrows one screen splits into another
+service by aggregate or responsibility, and the module exposes only the services
+other modules may call.
 
 ### Helpers
 
@@ -179,6 +178,12 @@ await app.register(AutoLoad, {
   files beside an index but still walks its subfolders, and imports every file
   there, tests and migrations included: a test file calls `describe` outside
   Vitest and the boot crashes.
+- `ignorePattern: /^tests$/` is not enough here. It keeps the tests out, but
+  autoload still registers every default export inside the module as a plugin.
+  A routes file with `export default` came up a second time at the root,
+  without its prefix and its service, and answered 500. A migration with
+  `export default` ran at every boot. The index is the only entry of a module,
+  for autoload too.
 - `dirNameRoutePrefix: false`, because the module sets its own prefix.
 - Autoload orders the modules by their declared `dependencies`, not by name.
 - The plugins load first, in their own autoload call over `plugins/` with
