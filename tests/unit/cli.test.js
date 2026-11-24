@@ -192,11 +192,13 @@ test('a skipped target stays out of the ignore files', () => {
   try {
     const gitignore = path.join(root, '.gitignore');
     fs.writeFileSync(gitignore, '');
-    const own = path.join(root, '.claude', 'skills', 'mine');
-    fs.mkdirSync(own, { recursive: true });
+    const other = path.join(root, 'other-skills');
+    fs.mkdirSync(other);
+    fs.mkdirSync(path.join(root, '.claude'));
+    fs.symlinkSync(other, path.join(root, '.claude', 'skills'), 'dir');
     const result = runCli(root, ['claude']);
     assert.strictEqual(result.status, 0);
-    assert.match(result.stdout, /not a symlink; skip/);
+    assert.match(result.stdout, /is a symlink/);
     assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), '');
   } finally {
     removeProject(root);
@@ -346,22 +348,41 @@ test('--pack leaves a foreign symlink alone and fails', () => {
   }
 });
 
-test('--pack leaves a directory with the skills of the user alone and fails', () => {
+const addProjectSkill = (root, name) => {
+  const skillPath = path.join(root, TARGET, name);
+  fs.mkdirSync(skillPath, { recursive: true });
+  fs.writeFileSync(path.join(skillPath, 'SKILL.md'), `# ${name}\n`);
+  return skillPath;
+};
+
+const isProjectSkill = (root, name) => {
+  const stat = fs.lstatSync(path.join(root, TARGET, name));
+  return stat.isDirectory() && !stat.isSymbolicLink();
+};
+
+const ignoreBlock = (names) => {
+  const lines = [`# alexiskills:begin ${TARGET}`];
+  for (const name of names) lines.push(`${TARGET}/${name}`);
+  lines.push(`# alexiskills:end ${TARGET}`);
+  return `${lines.join('\n')}\n`;
+};
+
+test('--pack keeps project skills and links the packs next to them', () => {
   const root = createPackProject();
   try {
-    const own = path.join(root, TARGET, 'mine');
-    fs.mkdirSync(own, { recursive: true });
-    fs.writeFileSync(path.join(own, 'SKILL.md'), '# mine\n');
+    addProjectSkill(root, 'mine');
     const result = runCli(root, ['claude', '--pack', 'design']);
-    assert.strictEqual(result.status, 1);
-    assert.match(result.stderr, /holds other files/);
-    assert.deepStrictEqual(linkedNames(root), ['mine']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Linked \.claude\/skills \(2 skills\)/);
+    assert.deepStrictEqual(linkedNames(root), ['alpha', 'beta', 'mine']);
+    assert.ok(isProjectSkill(root, 'mine'));
+    assert.ok(fs.existsSync(path.join(root, TARGET, 'beta', 'SKILL.md')));
   } finally {
     removeProject(root);
   }
 });
 
-test('--pack treats a link of the user into the package as their own', () => {
+test('--pack keeps a link of the user into the package', () => {
   const root = createPackProject();
   try {
     const targetPath = path.join(root, TARGET);
@@ -369,8 +390,130 @@ test('--pack treats a link of the user into the package as their own', () => {
     const betaPath = path.join(root, PACKAGE_SKILLS, 'beta');
     fs.symlinkSync(path.relative(targetPath, betaPath), path.join(targetPath, 'my-alias'), 'dir');
     const result = runCli(root, ['claude', '--pack', 'design']);
-    assert.strictEqual(result.status, 1);
-    assert.deepStrictEqual(linkedNames(root), ['my-alias']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.deepStrictEqual(linkedNames(root), ['alpha', 'beta', 'my-alias']);
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('a project skill wins over a package skill of the same name', () => {
+  const root = createPackProject();
+  try {
+    const gitignore = path.join(root, '.gitignore');
+    fs.writeFileSync(gitignore, '');
+    addProjectSkill(root, 'beta');
+    const result = runCli(root, ['claude', '--pack', 'design']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.match(result.stdout, /\(1 skills\); kept project skill beta/);
+    assert.ok(isProjectSkill(root, 'beta'));
+    assert.strictEqual(
+      fs.readFileSync(path.join(root, TARGET, 'beta', 'SKILL.md'), 'utf8'),
+      '# beta\n',
+    );
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), ignoreBlock(['alpha']));
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('a run without --pack links every skill next to the project skills', () => {
+  const root = createPackProject();
+  try {
+    const gitignore = path.join(root, '.gitignore');
+    const npmignore = path.join(root, '.npmignore');
+    fs.writeFileSync(gitignore, 'node_modules');
+    fs.writeFileSync(npmignore, '');
+    addProjectSkill(root, 'mine');
+    const result = runCli(root, ['claude']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.deepStrictEqual(linkedNames(root), ['alpha', 'beta', 'gamma', 'mine']);
+    assert.ok(isProjectSkill(root, 'mine'));
+    const block = ignoreBlock(['alpha', 'beta', 'gamma']);
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), `node_modules\n${block}`);
+    assert.strictEqual(fs.readFileSync(npmignore, 'utf8'), block);
+    const again = runCli(root, ['claude']);
+    assert.match(again.stdout, /Already linked \.claude\/skills \(3 skills\)/);
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('switching packs removes only our links and updates the block in place', () => {
+  const root = createPackProject();
+  try {
+    const gitignore = path.join(root, '.gitignore');
+    fs.writeFileSync(gitignore, 'node_modules\n');
+    addProjectSkill(root, 'mine');
+    runCli(root, ['claude', '--pack', 'design']);
+    fs.appendFileSync(gitignore, 'dist\n');
+    const result = runCli(root, ['claude', '--pack', 'security']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.match(result.stdout, /removed beta/);
+    assert.deepStrictEqual(linkedNames(root), ['alpha', 'gamma', 'mine']);
+    assert.ok(isProjectSkill(root, 'mine'));
+    const expected = `node_modules\n${ignoreBlock(['alpha', 'gamma'])}dist\n`;
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), expected);
+    const before = fs.statSync(gitignore).mtimeMs;
+    runCli(root, ['claude', '--pack', 'security']);
+    assert.strictEqual(fs.statSync(gitignore).mtimeMs, before);
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), expected);
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('one directory symlink takes the place of the block', () => {
+  const root = createPackProject();
+  try {
+    const gitignore = path.join(root, '.gitignore');
+    fs.writeFileSync(gitignore, 'node_modules\n');
+    runCli(root, ['claude', '--pack', 'design']);
+    assert.strictEqual(
+      fs.readFileSync(gitignore, 'utf8'),
+      `node_modules\n${ignoreBlock(['alpha', 'beta'])}`,
+    );
+    const result = runCli(root, ['claude']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.ok(fs.lstatSync(path.join(root, TARGET)).isSymbolicLink());
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), `node_modules\n${TARGET}\n`);
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('a block left with no links is removed', () => {
+  const root = createPackProject({ core: ['alpha'], design: ['beta'] });
+  try {
+    const gitignore = path.join(root, '.gitignore');
+    fs.writeFileSync(gitignore, ignoreBlock(['alpha', 'beta']));
+    addProjectSkill(root, 'alpha');
+    addProjectSkill(root, 'beta');
+    const result = runCli(root, ['claude', '--pack', 'design']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.match(result.stdout, /kept project skill alpha, beta/);
+    assert.strictEqual(fs.readFileSync(gitignore, 'utf8'), '');
+  } finally {
+    removeProject(root);
+  }
+});
+
+test('a warning names an ignore line that hides the project skills', () => {
+  const root = createPackProject();
+  try {
+    fs.writeFileSync(path.join(root, '.gitignore'), `/${TARGET}/\n`);
+    addProjectSkill(root, 'mine');
+    const result = runCli(root, ['claude', '--pack', 'design']);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.match(result.stderr, /warning: \.gitignore ignores all of \.claude\/skills/);
+    const plain = createPackProject();
+    try {
+      fs.writeFileSync(path.join(plain, '.gitignore'), `${TARGET}\n`);
+      const linksOnly = runCli(plain, ['claude', '--pack', 'design']);
+      assert.strictEqual(linksOnly.stderr, '');
+    } finally {
+      removeProject(plain);
+    }
   } finally {
     removeProject(root);
   }

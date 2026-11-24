@@ -12,7 +12,7 @@ keeps the app working and makes the next one possible.
 | 5. Interface | service bound to the driver | the repository interface moves into `domain/`; the implementation stays in `infra/` |
 | 6. Aggregate | rules scattered across services | invariants move into the aggregate root; the service orchestrates |
 | 7. Injection | imports of `db`, `logger`, `config` | factories with parameters, wired by the module's `index.ts` |
-| 8. Config | constants inside modules | `@fastify/env` or `env-schema` once; modules get their slice |
+| 8. Config | constants inside modules | one schema, loaded once (`node-config`); modules get their slice |
 | 9. Errors | HTTP inside services | domain error codes, one `setErrorHandler` |
 | 10. Second adapter | hidden transport coupling | the same service runs in a BullMQ worker or a wRPC procedure |
 | 11. Contracts | hand-written shapes | schemas in `@alexify/metaschema`; route schemas, types and validators come from them |

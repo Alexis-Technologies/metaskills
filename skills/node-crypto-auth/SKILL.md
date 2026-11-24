@@ -11,7 +11,7 @@ random tokens that the server can revoke at any moment, and constant-time compar
 |           | Library `@alexify/*`            | App (`auth8`)                                               |
 | --------- | ------------------------------- | ----------------------------------------------------------- |
 | Crypto    | `node:crypto`, zero runtime deps | `node:crypto`; a vetted package for WebAuthn, TOTP, OAuth   |
-| Keys      | Constructor options             | 12-factor env, validated by `env-schema`, never logged      |
+| Keys      | Constructor options             | 12-factor env, one schema (`node-config`), never logged      |
 | Sessions  | Store is injected               | MongoDB through the DAL, Redis as cache                     |
 | Transport | Caller decides                  | `@fastify/cookie`, `Authorization: Bearer`, wrpc sessions   |
 

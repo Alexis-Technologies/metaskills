@@ -1,6 +1,6 @@
 ---
 name: node-http-server
-description: Builds and reviews Fastify and node:http servers with limits, timeouts and undici. Use for routes, plugins, hooks, proxies, hangs, 413s, 502s
+description: Fastify and node:http servers with limits, timeouts and undici. Use for routes, plugins, hooks, proxies, hangs, 413s, 502s
 ---
 
 # Node.js HTTP Server
@@ -48,7 +48,7 @@ The full wiring, with a lifecycle table and an `inject` test, is in
   block. Declare request fields with `decorateRequest('user', null)`. Fastify 5 refuses an object or
   array default (`FST_ERR_DEC_REFERENCE_TYPE`), because it would be shared between requests.
 - Whatever a plugin opens, it closes in its own `onClose` hook.
-- Configuration comes from `fastify.config` (`env-schema` through `@fastify/env`). No `NODE_ENV`
+- Configuration comes from `fastify.config`, validated once at boot (`node-config`). No `NODE_ENV`
   branches.
 
 ```ts

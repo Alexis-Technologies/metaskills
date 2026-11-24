@@ -1,6 +1,6 @@
 ---
 name: node-data-access
-description: Builds and reviews the Node.js data layer on native MongoDB. Use for a DAL, repositories, transactions, indexes, migrations or NoSQL injection
+description: The Node.js data layer on native MongoDB. Use for a DAL, repositories, transactions, indexes, migrations or NoSQL injection
 ---
 
 <!-- Alexis stack: database-independent rules first, then the MongoDB profile of auth8

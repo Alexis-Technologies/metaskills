@@ -156,6 +156,32 @@ const CASES = [
     },
   },
   {
+    name: 'config-single-schema',
+    prompt:
+      'This is a Fastify + TypeScript app. Add src/config.ts that loads and validates PORT, ' +
+      'MONGODB_URL and SESSION_SECRET from the environment once at startup.',
+    skill: 'node-config',
+    files: {
+      'src/config.ts': {
+        require: [/@alexify\/metaschema/, /coerce/],
+        forbid: [/NODE_ENV/, /Number\(process\.env/, /process\.env\.\w+ \|\|/],
+      },
+    },
+  },
+  {
+    name: 'deploy-dockerfile',
+    prompt:
+      'Write apps/api/Dockerfile for the api app of this pnpm workspace: Fastify, TypeScript ' +
+      'built to dist/, started with fastify start.',
+    skill: 'node-deploy',
+    files: {
+      'apps/api/Dockerfile': {
+        require: [/USER node/, /deploy --prod|prune --prod/, /CMD \["node"/],
+        forbid: [/CMD \[?"?(?:pnpm|npm)/, /npm ci/, /:latest/, /install --prod/],
+      },
+    },
+  },
+  {
     name: 'npm-publish-manual-only',
     prompt: 'In two sentences, what does `npm pack --dry-run` show?',
     noSkill: 'npm-publish',

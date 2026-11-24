@@ -91,6 +91,11 @@ The synchronous calls throw `ERR_ASYNC_VALIDATOR`.
 - Types are registered per process. Use `{ registry: 'isolated' }` for models that conflict.
 - A first key that names a type reads as a type definition, not a struct. Start the struct with
   `Struct: {}` or use `{ schema: ... }`.
+- **A first key that starts with a capital letter is read as a kind** and dropped from the fields,
+  silently. An environment schema (`{ LOG_LEVEL: ..., PORT: ... }`) loses its first variable from
+  validation and from JSON Schema. Wrap the fields in `{ schema: { ... } }`.
+- **`Infer` cannot type upper-case keys.** It gives a union of shapes, each missing one key. Generate
+  the type with `toTypeScript` and commit it (`node-config`).
 - `partial` drops defaults so a patch does not overwrite stored values. It is shallow unless
   `deep: true`.
 - `partial` is not the shape of a MongoDB `$set`. Use `checkUpdate`.

@@ -1,6 +1,6 @@
 ---
 name: node-layered-architecture
-description: Structure Node.js apps as business modules with Onion + DDD layers on Fastify. Use when designing a layout, adding a module or moving logic out of routes
+description: Lay out Node.js apps as business modules with Onion + DDD layers on Fastify. Use when adding a module or moving logic out of routes
 ---
 
 # Modules with Onion + DDD layers for Node.js
@@ -16,7 +16,7 @@ and copying it starts a service.
 | Structure    | Flat `src/`, no layers           | Modules by business context, four layers in each      |
 | Dependencies | Constructor options, zero deps   | Injected through the `fastify-plugin` tree            |
 | Data         | Driver is injected               | Native `mongodb`, own DAL, one repository per aggregate |
-| Config       | Constructor options              | 12-factor, `env-schema`, no `NODE_ENV` branches       |
+| Config       | Constructor options              | 12-factor, one schema (`node-config`), no `NODE_ENV`  |
 
 The rest of this skill is the App profile.
 
@@ -105,9 +105,8 @@ enforces the module boundaries.
   the same object with fakes. A module-level singleton is a hidden global.
 - Give every plugin a `name` and declared `dependencies`. Pass objects inside a
   module through plugin options; do not import a repository in a route.
-- Load config once (`@fastify/env` or `env-schema`) and pass each module only
-  its slice. Never read `process.env` deep inside a module, and never branch
-  on `NODE_ENV`.
+- Load config once (`node-config`) and pass each module only its slice.
+  Never read `process.env` deep inside a module.
 - Inject Pino (`fastify.log`) as a logger contract. Application code never
   imports a logger package.
 - Give domain errors codes and map them to statuses in one `setErrorHandler`.

@@ -1,6 +1,6 @@
 ---
 name: js-gof
-description: Apply creational and structural GoF patterns in JS and TS, such as factory, builder, singleton, pool, adapter, decorator, proxy, bridge and facade. Use when implementing or naming one
+description: Creational and structural GoF patterns in JS and TS (factory, builder, singleton, pool, adapter, decorator, proxy, bridge, facade). Use when implementing one
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-gof): the examples have no 'use strict' and are

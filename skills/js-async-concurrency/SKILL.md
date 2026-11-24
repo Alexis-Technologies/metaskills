@@ -1,6 +1,6 @@
 ---
 name: js-async-concurrency
-description: Bound async concurrency in JS and Node with pools, queues, semaphores and locks. Use for races, lost updates, retries, fan-out or pool exhaustion
+description: Bound async concurrency in JS and Node with pools, queues, semaphores, locks. Use for races, lost updates, retries, fan-out or pool exhaustion
 ---
 
 # Async Concurrency Control
@@ -15,7 +15,7 @@ in `js-async-patterns`, threads and shared memory in `node-multithreading`.
 
 |                     | Library (`@alexify/*`)         | App                                         |
 | ------------------- | ------------------------------ | ------------------------------------------- |
-| Limits              | Constructor options            | `env-schema` config, tuned by measured load |
+| Limits              | Constructor options            | `node-config`, tuned by measured load |
 | Cross-process state | None, the driver is injected   | MongoDB atomic writes, `rev`, transactions  |
 | Durable jobs        | Not a library concern          | BullMQ (`concurrency`, `limiter`)           |
 

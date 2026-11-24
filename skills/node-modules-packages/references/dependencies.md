@@ -147,7 +147,7 @@ dependency of something else.
 | `bcrypt`                          | `crypto.scrypt` (or `argon2` when required)                                         |
 | `mocha`, `jest`, `ava`, `tap`     | Library: `node:test` + `node:assert/strict`. App: Vitest                            |
 | `nodemon`                         | `node --watch`                                                                      |
-| `dotenv`                          | `node --env-file=.env`, `process.loadEnvFile()`; an app validates with `env-schema` |
+| `dotenv`                          | `node --env-file=.env`, `process.loadEnvFile()`; an app validates with one schema (`node-config`) |
 | `rimraf`, `mkdirp`, `ncp`         | `fs.rm({ recursive: true, force: true })`, `fs.mkdir({ recursive: true })`, `fs.cp` |
 | `glob`                            | `fs.glob` / `fs.promises.glob`                                                      |
 | `chalk`, `colors`                 | `util.styleText()`                                                                  |

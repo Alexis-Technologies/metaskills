@@ -1,6 +1,6 @@
 ---
 name: node-access-control
-description: Authorization with @alexify/kerberos for roles, ownership, tenants and fields. Use when protecting routes or wrpc procedures or reviewing access
+description: Authorization with @alexify/kerberos for roles, ownership, tenants, fields. Use when protecting routes or wrpc procedures or reviewing access
 ---
 
 # Node.js Access Control

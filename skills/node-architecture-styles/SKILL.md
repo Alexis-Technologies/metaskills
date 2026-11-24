@@ -1,6 +1,6 @@
 ---
 name: node-architecture-styles
-description: Choose Node.js architecture styles (Onion, modular monolith, DDD, CQRS, saga, outbox). Use when designing a service or splitting a monolith
+description: Pick a Node.js architecture (Onion, modular monolith, DDD, CQRS, saga, outbox). Use when designing services or splitting monoliths
 ---
 
 # Architecture Styles for Node.js
@@ -69,13 +69,14 @@ this skill is the map and the decision guide.
   its in-process adapter for a network client implementing the same contract
   (timeouts via `AbortSignal.timeout()`, retries only for idempotent calls,
   idempotency keys for commands), move its data to its own database,
-  and replace cross-module transactions with a saga or outbox.
-- Keep services stateless when you can (restart, scale, deploy freely).
+  and replace cross-module transactions with a saga or outbox. Move traffic
+  route by route: [references/strangler.md](references/strangler.md).
+- Keep services stateless when you can (restart, scale, deploy).
   Accept a stateful service only for interactive/near-real-time needs
   (WebSocket rooms, in-memory game state) and plan for sticky routing and
   state recovery (`node-scaling-highload`, `node-websocket-realtime`).
-- Shared mutable state, inheritance-heavy code and global singletons block
-  clustering, workers and extraction later. Prefer composition and injection.
+- Shared mutable state, inheritance-heavy code and singletons block
+  clustering, workers and extraction. Prefer composition and injection.
 
 ### Domain logic and persistence patterns
 
@@ -246,8 +247,8 @@ const createTransfer = ({ accounts, outbox, client, withTransaction, createId })
 };
 ```
 
-`withTransaction` is the DAL helper (`node-data-access`), injected so the use
-case imports no driver. Every repository call gets `{ session }`. It needs a
+`withTransaction` is the DAL helper (`node-data-access`), injected so the
+service imports no driver. Every repository call gets `{ session }`. It needs a
 replica set and the whole callback is retried on a transient error, so it does
 database work only: no publish, no email. The id is created outside it, so a
 retry writes the same event.

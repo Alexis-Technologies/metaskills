@@ -46,6 +46,32 @@ packages/
   kerberos/               authorization policies
 ```
 
+- Dependencies flow `apps -> packages`, never back: a package never imports an
+  app, and an app never imports another app. Every package declares what it
+  uses as `workspace:*` in its own `package.json`, so pnpm and Nx see the graph.
+- Check it with a test, not with `@nx/enforce-module-boundaries`, which is an
+  ESLint rule:
+
+```ts
+// tests/boundaries.test.ts at the workspace root
+import { readdirSync, readFileSync } from 'node:fs';
+
+import { describe, expect, it } from 'vitest';
+
+const readManifest = (dir: string) => JSON.parse(readFileSync(`${dir}/package.json`, 'utf8'));
+const appNames = readdirSync('apps').map((name) => readManifest(`apps/${name}`).name);
+
+describe('workspace boundaries', () => {
+  it('should keep apps out of the dependencies of packages', () => {
+    for (const name of readdirSync('packages')) {
+      const manifest = readManifest(`packages/${name}`);
+      const dependencies = { ...manifest.dependencies, ...manifest.devDependencies };
+      for (const appName of appNames) expect(dependencies[appName]).toBeUndefined();
+    }
+  });
+});
+```
+
 - The DAL belongs to infrastructure, and both the API and the jobs consume it.
 - `buildRepositories({ connection, ajv, logger })` assembles every repository
   over one connection, and each one is `class XRepository extends

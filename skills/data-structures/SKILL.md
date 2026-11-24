@@ -1,6 +1,6 @@
 ---
 name: data-structures
-description: Build custom JS data structures such as queues, deques, lists, ring buffers, tries, heaps, graphs, LRU caches, CRDTs and pools. Use when Map, Set, Array or Object are not enough
+description: Custom JS data structures (queues, deques, lists, ring buffers, tries, heaps, graphs, LRU caches, CRDTs, pools). Use when Map, Set or Array are not enough
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/data-structures): the G-Counter sums with a loop,

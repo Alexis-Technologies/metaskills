@@ -1,6 +1,6 @@
 ---
 name: node-websocket-realtime
-description: WebSocket and realtime on @alexify/wrpc with upgrade auth, rooms, feeds, reconnect and drain. Use for chat, live data, dropped or leaking sockets
+description: WebSocket and realtime on @alexify/wrpc with upgrade auth, rooms, feeds, reconnect, drain. Use for chat, live data, dropped or leaking sockets
 ---
 
 # WebSocket and Real-Time Systems in Node.js
@@ -28,7 +28,7 @@ close, keep domain code transport-agnostic, and design reconnection and scale-ou
 |  | Library `@alexify/*` | App (`auth8`) |
 | --- | --- | --- |
 | Host | Transport injected, no framework import | `wrpcFastify`, shares hooks, Pino, shutdown |
-| Config | Constructor options | `env-schema`: origins, limits, Redis URL |
+| Config | Constructor options | `node-config`: origins, limits, Redis URL |
 | Sessions | Store injected | Redis through `createRedisSessionStore` |
 | Tests | `node:test` with a real `WrpcClient` | Vitest with DI fakes, k6 or autocannon for load |
 

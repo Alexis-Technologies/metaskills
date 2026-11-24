@@ -29,8 +29,8 @@ pnpm exec alexiskills claude
 
 The command is `alexiskills`, so it cannot clash with the `metaskills` command of
 `metarhia/metaskills`. It symlinks the skills directory of the IDE to the installed package and adds
-the link to `.gitignore` and `.npmignore`. A directory that already holds your own skills is left
-unchanged.
+the link to `.gitignore` and `.npmignore`. Your own skills in that directory stay, and each package
+skill is linked next to them.
 
 | IDE         | Command                   | Target directory    |
 | ----------- | ------------------------- | ------------------- |
@@ -45,7 +45,7 @@ unchanged.
 
 ## Skills
 
-34 skills in seven packs. Without an option the command links all of them. A project that needs less
+37 skills in seven packs. Without an option the command links all of them. A project that needs less
 links `core` and the packs it names, which keeps the skill descriptions within an agent's context:
 
 ```bash
@@ -54,11 +54,11 @@ pnpm exec alexiskills claude --pack backend,security
 
 | Pack       | Skills | Covers                                                                |
 | ---------- | ------ | --------------------------------------------------------------------- |
-| `core`     | 8      | Code style, errors, async, schemas, modules, tooling, `@alexify/*`    |
+| `core`     | 9      | Code style, errors, async, schemas, config, modules, tooling, `@alexify/*` |
 | `design`   | 5      | Patterns, SOLID and GRASP, paradigms, Onion + DDD, architecture styles |
 | `library`  | 4      | Data structures and preparing an `@alexify` package for release       |
 | `runtime`  | 8      | Event loop, concurrency, events, streams, files, threads, profiling   |
-| `backend`  | 4      | Fastify and HTTP, the data access layer, shutdown, scaling            |
+| `backend`  | 6      | Fastify and HTTP, data access, shutdown, scaling, deploy, observability |
 | `security` | 3      | Application security, crypto and authentication, access control       |
 | `realtime` | 2      | WebSocket on wrpc, local-first sync                                   |
 

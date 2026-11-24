@@ -154,8 +154,8 @@ Runtime tooling
 - `--env-file=.env` for local development only. Real environment variables
   win over the file, later `--env-file` flags override earlier ones, and
   `--env-file-if-exists` tolerates a missing file. Never commit secrets;
-  commit `.env.example`. An app validates its config with `env-schema` and
-  has no `NODE_ENV` branches.
+  commit `.env.example`. An app validates its config with one schema and
+  has no `NODE_ENV` branches (`node-config`).
 - Single executable applications: steps and caveats in
   [references/ci-types-release.md](references/ci-types-release.md).
 
@@ -262,8 +262,10 @@ More recipes:
 - [references/node-test-cookbook.md](references/node-test-cookbook.md): hooks,
   `t.plan`, mocks, snapshots, c8, reporters, a real HTTP server on port `0`,
   stress tests, CLI tests.
-- [references/app-testing.md](references/app-testing.md): Vitest config, fake
-  clocks, ports and fakes, MongoDB integration, Playwright, autocannon, k6.
+- [references/app-testing.md](references/app-testing.md): Vitest config, names,
+  fakes, coverage, fake clocks, `inject`, MongoDB integration, benchmarks.
+- [references/e2e-load.md](references/e2e-load.md): Playwright, autocannon, k6
+  and the load profiles.
 - [references/ci-types-release.md](references/ci-types-release.md): oxlint and
   oxfmt configs, GitHub Actions, `.d.ts` and tsd, `tsconfig`, SEA, the Node
   upgrade checklist.

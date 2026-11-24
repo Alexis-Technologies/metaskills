@@ -181,8 +181,8 @@ knowledge is for system code: streams, semaphores, promise libraries.
 - Export event loop utilization (ELU) and loop delay percentiles in
   production. As a default, 10-30% ELU is normal and around 70% the process is
   saturated, so alert well below that, long before errors appear. Tune by
-  measurement: capacity ("how many users") belongs to the concrete code and is
-  never a guess.
+  measurement: capacity comes from the code, never a guess
+  ([references/capacity.md](references/capacity.md)).
 - **App**: `@fastify/under-pressure` sheds load with 503 and `Retry-After`
   once a limit is passed, and `fastify.isUnderPressure()` lets a route skip
   optional work. `auth8-api` sheds at `maxEventLoopUtilization: 0.98` and

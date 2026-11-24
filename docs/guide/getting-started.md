@@ -43,7 +43,8 @@ npm drop the scope of a bin name, and a plain `metaskills` would clash with `met
 | Antigravity | `alexiskills antigravity` | `.agents/skills`    |
 | All         | `alexiskills all`         | All of the above    |
 
-A target that already holds your own skills is left unchanged and reported as skipped.
+A target that already holds your own skills keeps them, and each package skill is linked next to
+them: see [Project skills](/guide/packs#project-skills).
 
 To link only part of the skills, see [Packs](/guide/packs).
 

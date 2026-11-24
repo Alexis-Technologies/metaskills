@@ -21,7 +21,17 @@ not published yet.
   as the single source of schemas, oxlint and oxfmt. An app is laid out as modules by business
   context, each with `domain/`, `app/`, `infra/` and `presentation/` and its tests beside the code.
 - **Skill packs.** `alexiskills claude --pack backend,security` links `core` and the chosen
-  packs instead of all 34 skills, so their descriptions fit an agent's context.
+  packs instead of all 37 skills, so their descriptions fit an agent's context.
+- **Three skills from the auth8 material.** `node-config` (one validated environment schema,
+  secrets, feature switches, no `NODE_ENV`), `node-deploy` (multi-stage images with pnpm, Fly.io and
+  Vercel) and `node-observability` (OpenTelemetry traces and metrics, Pino with trace ids, alerts).
+  The rest of auth8's skills went into existing ones: a circuit breaker, Playwright and load
+  profiles, fastify-cli settings, the strangler, stale reads under pressure, Piscina and capacity
+  arithmetic.
+- **Project skills next to the links.** A directory of the project's own skills in
+  `.claude/skills` stays, and the package skills are linked next to it, with or without `--pack`.
+  A project skill wins over a package skill of the same name. The links go into a managed block of
+  `.gitignore` and `.npmignore`, so the project skills stay tracked.
 - **Repository gates.** oxlint, oxfmt, `node:test` with c8, context budgets for skills, a tarball
   check, a generated skill catalog and CI on Node.js 18 to 26.
 - **Documentation site.** A VitePress guide and a catalog generated from the skills.
@@ -38,6 +48,10 @@ not published yet.
   failures, and a process policy that ends in a graceful shutdown.
 - **Short descriptions.** At most 200 characters each and 5100 in total, because all descriptions
   share about 1% of the context window.
+- **`js-data-structures` without the upstream splice.** v1.0.6 has fragments of the
+  `data-structures` classes inside its examples; they are removed.
+- **One way to start a Fastify app.** `node-graceful-shutdown` covers `fastify start`, where
+  fastify-cli owns the signals, and an entry of your own, and never both.
 
 ### Removed
 

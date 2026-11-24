@@ -4,7 +4,8 @@ description: Stops Node.js services cleanly with Fastify, BullMQ, Redis and wrpc
 ---
 
 <!-- Alexis stack: Fastify, BullMQ, Redis/Valkey, wrpc and Pino. This skill owns shutdown:
-     error-handling calls the idempotent shutdown(origin, exitCode) defined here. -->
+     error-handling calls the idempotent shutdown(origin, exitCode) defined here, or relies on
+     fastify-cli's handlers under `fastify start`. -->
 
 # Node.js graceful shutdown
 
@@ -14,7 +15,7 @@ flush logs, and exit with a meaningful code. The trigger may be a deploy signal 
 
 |  | Library `@alexify/*` | App (`auth8`) |
 | --- | --- | --- |
-| Signals | Never installs handlers | One handler set in `main.ts` |
+| Signals | Never installs handlers | One handler set: fastify-cli's, or your entry's |
 | Lifecycle | Exposes `close()`, idempotent | `fastify.close()`, `onClose` hooks |
 | Injected resources | Never closes what it did not create | Each plugin closes what it opened |
 
@@ -92,7 +93,28 @@ Do not set `forceCloseConnections: true` to fix this: it drops in-flight request
 
 ## Fastify pattern
 
+### Two ways to start, never both
+
+| | `fastify start -o dist/main.js` | Your entry: `app.listen` |
+| --- | --- | --- |
+| Signal handlers | fastify-cli (close-with-grace): `SIGTERM`, `SIGINT`, uncaught errors | `createShutdown` below |
+| Exit deadline | `FASTIFY_CLOSE_GRACE_DELAY`, default **500 ms**: set it | `exitTimeoutMs` |
+| Readiness delay | Not in the app: delay in the platform | `readinessDelayMs` before `close()` |
+| Exit code | `0` after a signal, `1` after an error or the deadline | `0` or `1`, a crash raises it |
+| Used by | HTTP services laid out as a plugin tree (`auth8-api`) | Workers, CLIs, standalone servers |
+
+- Under `fastify start`, `main.ts` exports a plugin, and fastify-cli owns the process. A plugin
+  that also calls `process.on('SIGTERM')` runs a second shutdown.
+- From the first line of `close()`, before any `preClose` hook, Fastify answers every new request
+  with 503 and `Connection: close` (`return503OnClosing`). A delay inside `close()` serves no
+  traffic. On Kubernetes use a `preStop` sleep (`node-deploy`), or start from your own entry.
+- The default 500 ms grace delay kills every drain. Set it below the platform's kill timeout, for
+  example `FASTIFY_CLOSE_GRACE_DELAY=25000` with `kill_timeout = "30s"`.
+
 ### Lifecycle plugin
+
+Both ways use it. It answers health checks, marks in-flight responses with `Connection: close`
+during the drain and drops what is left at the drain deadline.
 
 ```ts
 // plugins/lifecycle.ts
@@ -100,17 +122,30 @@ import fp from 'fastify-plugin';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    lifecycle: { isDraining: boolean };
+    lifecycle: { isDraining: boolean; isForced: boolean };
   }
 }
 
 export default fp(
   async (fastify) => {
-    const lifecycle = { isDraining: false };
+    const lifecycle = { isDraining: false, isForced: false };
+    let drainTimer: NodeJS.Timeout | null = null;
     fastify.decorate('lifecycle', lifecycle);
 
     fastify.addHook('onSend', async (request, reply) => {
       if (lifecycle.isDraining) reply.header('connection', 'close');
+    });
+
+    fastify.addHook('preClose', async () => {
+      lifecycle.isDraining = true;
+      drainTimer = setTimeout(() => {
+        fastify.log.warn('drain deadline reached, dropping connections');
+        lifecycle.isForced = true;
+        fastify.server.closeAllConnections();
+      }, fastify.config.SHUTDOWN_DRAIN_TIMEOUT_MS);
+    });
+    fastify.addHook('onClose', async () => {
+      if (drainTimer !== null) clearTimeout(drainTimer);
     });
 
     fastify.get('/health/live', async () => ({ status: 'ok' }));
@@ -119,11 +154,13 @@ export default fp(
       return { status: 'ok' };
     });
   },
-  { name: 'lifecycle' },
+  { name: 'lifecycle', dependencies: ['config'] },
 );
 ```
 
-### The shutdown routine
+Under `fastify start` a drain cut at the deadline still exits `0`: the warning above is the record.
+
+### The shutdown routine of your own entry
 
 ```ts
 // shutdown.ts
@@ -136,7 +173,6 @@ export type ShutdownOptions = {
   app: FastifyInstance;
   logger: Logger;
   readinessDelayMs: number;
-  drainTimeoutMs: number;
   exitTimeoutMs: number;
 };
 export type Shutdown = (origin: string, exitCode?: number) => Promise<void>;
@@ -147,10 +183,11 @@ const flush = (logger: Logger): Promise<void> =>
   });
 
 export const createShutdown = (options: ShutdownOptions): Shutdown => {
-  const { app, logger, readinessDelayMs, drainTimeoutMs, exitTimeoutMs } = options;
+  const { app, logger, readinessDelayMs, exitTimeoutMs } = options;
   let closing: Promise<void> | null = null;
   let finalCode = 0;
 
+  // The app still serves during the delay: Fastify refuses requests only once close() starts.
   const drain = async (delayMs: number): Promise<void> => {
     app.lifecycle.isDraining = true;
     if (delayMs > 0) await sleep(delayMs);
@@ -161,11 +198,6 @@ export const createShutdown = (options: ShutdownOptions): Shutdown => {
     if (exitCode > finalCode) finalCode = exitCode;
     if (closing !== null) return closing;
     logger.info({ origin, exitCode }, 'shutdown started');
-    const drainTimer = setTimeout(() => {
-      logger.warn('drain deadline reached, dropping connections');
-      finalCode = 1;
-      app.server.closeAllConnections();
-    }, drainTimeoutMs);
     setTimeout(() => {
       logger.fatal('shutdown deadline reached');
       process.exit(1);
@@ -177,7 +209,7 @@ export const createShutdown = (options: ShutdownOptions): Shutdown => {
         logger.error({ err: error }, 'shutdown failed');
       })
       .then(() => {
-        clearTimeout(drainTimer);
+        if (app.lifecycle.isForced) finalCode = 1;
         return flush(logger);
       })
       .then(() => process.exit(finalCode));
@@ -186,10 +218,11 @@ export const createShutdown = (options: ShutdownOptions): Shutdown => {
 };
 ```
 
-Keep `readinessDelayMs < drainTimeoutMs < exitTimeoutMs < platform kill timeout`, for example 2 s,
-20 s, 25 s and 30 s.
+Keep `readinessDelayMs < SHUTDOWN_DRAIN_TIMEOUT_MS < exitTimeoutMs < platform kill timeout`, for
+example 2 s, 20 s, 25 s and 30 s. Under `fastify start` the chain is drain timeout <
+`FASTIFY_CLOSE_GRACE_DELAY` < kill timeout.
 
-### Composition root
+### Composition root of your own entry
 
 ```ts
 // main.ts
@@ -205,7 +238,6 @@ const shutdown = createShutdown({
   app,
   logger,
   readinessDelayMs: config.SHUTDOWN_READINESS_DELAY_MS,
-  drainTimeoutMs: config.SHUTDOWN_DRAIN_TIMEOUT_MS,
   exitTimeoutMs: config.SHUTDOWN_EXIT_TIMEOUT_MS,
 });
 
@@ -323,6 +355,8 @@ Pino is flushed last, with `logger.flush(callback)`, after every hook has logged
 - Readiness green during the drain, or liveness failing during it.
 - Reconnecting all WebSocket clients at once, without jitter.
 - A non-idempotent shutdown: a second signal runs cleanup twice.
+- Signal handlers of your own under `fastify start`: two shutdowns race.
+- `FASTIFY_CLOSE_GRACE_DELAY` left at 500 ms: every drain is cut and exits `1`.
 - A crash during a requested stop that still exits `0`.
 - An `unref()`-ed exit timer: a hung cleanup ends the process with `0`.
 - `new URL(req.url, base)` in a hand-wired async handler with no `catch`: one `GET //` stops the
@@ -331,8 +365,9 @@ Pino is flushed last, with `logger.flush(callback)`, after every hook has logged
 
 ## Checklist
 
-- [ ] `SIGTERM` and `SIGINT` call one idempotent `shutdown(origin, exitCode)`.
-- [ ] `uncaughtException` calls `shutdown(origin, 1)`, and a later call can raise the exit code.
+- [ ] One way to start: `fastify start` with `FASTIFY_CLOSE_GRACE_DELAY` set, or your entry.
+- [ ] In your entry, `SIGTERM` and `SIGINT` call one idempotent `shutdown(origin, exitCode)`, and
+      `uncaughtException` calls `shutdown(origin, 1)`, which can raise the exit code.
 - [ ] Readiness flips to 503 at shutdown start, and liveness stays up.
 - [ ] In-flight responses carry `Connection: close` during the drain.
 - [ ] Workers are paused in `preClose` and closed in `onClose`, with a job deadline.

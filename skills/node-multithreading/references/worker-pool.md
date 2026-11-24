@@ -18,6 +18,58 @@ verified on Node.js 24:
 - `close()` rejects queued tasks and terminates every worker.
 - Binary data travels through the transfer list.
 
+## Piscina in an app
+
+```ts
+// plugins/imports.ts: one pool per kind of CPU work, created once
+import { availableParallelism } from 'node:os';
+
+import fp from 'fastify-plugin';
+import { Piscina } from 'piscina';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    imports: { parse: (text: string, signal: AbortSignal) => Promise<unknown> };
+  }
+}
+
+export default fp(
+  async (fastify) => {
+    const maxThreads = fastify.config.IMPORT_THREADS ?? Math.max(availableParallelism() - 1, 1);
+    const pool = new Piscina({
+      filename: new URL('../workers/parse-import.js', import.meta.url).href,
+      minThreads: 1,
+      maxThreads,
+      maxQueue: maxThreads * 4,
+      idleTimeout: 30_000,
+    });
+    const parse = (text: string, signal: AbortSignal) => pool.run({ text }, { signal });
+    fastify.decorate('imports', { parse });
+    fastify.addHook('onClose', async () => {
+      await pool.destroy();
+    });
+  },
+  { name: 'imports', dependencies: ['config'] },
+);
+```
+
+```ts
+// workers/parse-import.ts: a plain function, unit-tested without threads
+export default ({ text }: { text: string }) => parseImport(text);
+```
+
+- Size it from the CPU the container really gets, not the host's core count
+  (`node-scaling-highload`), and leave one core for the event loop.
+- Bound the queue. When it is full, `run()` rejects at once: map that to
+  `EUNAVAILABLE` (503), never wait.
+- Pass `request.signal` or `AbortSignal.timeout()`: a queued task is dropped,
+  and a running one ends with its thread.
+- The task is structured-cloned. Send small inputs, and move large binary
+  data with `Piscina.move()`.
+- Export `pool.utilization`, `pool.queueSize` and the wait time as metrics
+  (`node-observability`).
+- Close the pool in `onClose`, after the requests that used it have finished.
+
 ## pool.js
 
 ```js

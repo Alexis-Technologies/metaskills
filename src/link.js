@@ -20,6 +20,9 @@ const PACK_FLAG = '--pack';
 const PACK_ALL = 'all';
 const PACK_CORE = 'core';
 const LEGACY_LINK = 'metaskills';
+const IGNORE_FILES = ['.gitignore', '.npmignore'];
+const IGNORE_BEGIN = '# alexiskills:begin ';
+const IGNORE_END = '# alexiskills:end ';
 
 const detectTargetDirs = (root) => {
   const found = [];
@@ -152,7 +155,6 @@ const ensureSkillLinks = (targetDir, dirs) => {
 };
 
 const addToIgnoreFile = (filePath, entry) => {
-  if (!fs.existsSync(filePath)) return;
   const content = fs.readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
   if (lines.includes(entry)) return;
@@ -161,9 +163,66 @@ const addToIgnoreFile = (filePath, entry) => {
   fs.writeFileSync(filePath, `${content}${separator}${entry}\n`);
 };
 
-const ensureIgnored = (targetDir, root) => {
-  addToIgnoreFile(path.join(root, '.gitignore'), targetDir);
-  addToIgnoreFile(path.join(root, '.npmignore'), targetDir);
+const splitLines = (content) => {
+  if (content === '') return [];
+  const lines = content.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  return lines;
+};
+
+const blockLines = (targetDir, names) => {
+  const lines = [];
+  if (names.length === 0) return lines;
+  lines.push(`${IGNORE_BEGIN}${targetDir}`);
+  for (let i = 0; i < names.length; i++) lines.push(`${targetDir}/${names[i]}`);
+  lines.push(`${IGNORE_END}${targetDir}`);
+  return lines;
+};
+
+// One line per link between markers, so project skills in the same directory stay tracked.
+// The block is replaced in place, appended when missing and removed when it has no links.
+const writeIgnoreBlock = (filePath, targetDir, names) => {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = splitLines(content);
+  const block = blockLines(targetDir, names);
+  const begin = lines.indexOf(`${IGNORE_BEGIN}${targetDir}`);
+  const end = lines.indexOf(`${IGNORE_END}${targetDir}`);
+  const hasBlock = begin !== -1 && end > begin;
+  if (!hasBlock && block.length === 0) return;
+  if (hasBlock && lines.slice(begin, end + 1).join('\n') === block.join('\n')) return;
+  const next = hasBlock
+    ? lines.slice(0, begin).concat(block, lines.slice(end + 1))
+    : lines.concat(block);
+  const text = next.length === 0 ? '' : `${next.join('\n')}\n`;
+  fs.writeFileSync(filePath, text);
+};
+
+const ignoresWholeTarget = (filePath, targetDir) => {
+  const lines = splitLines(fs.readFileSync(filePath, 'utf8'));
+  const variants = [targetDir, `${targetDir}/`, `/${targetDir}`, `/${targetDir}/`];
+  for (let i = 0; i < variants.length; i++) {
+    if (lines.includes(variants[i])) return true;
+  }
+  return false;
+};
+
+// names is null for one directory symlink, or the links of a directory of links.
+const updateIgnoreFiles = (targetDir, context, names, hasProjectEntries) => {
+  const { root, warn } = context;
+  for (let i = 0; i < IGNORE_FILES.length; i++) {
+    const fileName = IGNORE_FILES[i];
+    const filePath = path.join(root, fileName);
+    if (!fs.existsSync(filePath)) continue;
+    if (names === null) {
+      addToIgnoreFile(filePath, targetDir);
+      writeIgnoreBlock(filePath, targetDir, []);
+      continue;
+    }
+    writeIgnoreBlock(filePath, targetDir, names);
+    if (hasProjectEntries && ignoresWholeTarget(filePath, targetDir)) {
+      warn(`${fileName} ignores all of ${targetDir}, so the project skills in it are not tracked`);
+    }
+  }
 };
 
 const splitPackNames = (value) => {
@@ -248,32 +307,56 @@ const isPackLink = (linkPath, sourcePath, name) => {
   return name === LEGACY_LINK && resolved === sourcePath;
 };
 
-const holdsOnlyPackLinks = (dirPath, sourcePath) => {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    if (!entry.isSymbolicLink()) return false;
-    if (!isPackLink(path.join(dirPath, entry.name), sourcePath, entry.name)) return false;
-  }
-  return true;
+const isPackEntry = (dirPath, entry, sourcePath) => {
+  if (!entry.isSymbolicLink()) return false;
+  return isPackLink(path.join(dirPath, entry.name), sourcePath, entry.name);
 };
 
-// Returns why the target must be left alone, or '' once it is a directory of our links.
+// Anything that is not one of our links belongs to the project: its own skills, aliases, files.
+const holdsProjectEntries = (linkPath, sourcePath) => {
+  const stat = fs.lstatSync(linkPath, { throwIfNoEntry: false });
+  if (!stat || !stat.isDirectory()) return false;
+  const entries = fs.readdirSync(linkPath, { withFileTypes: true });
+  for (let i = 0; i < entries.length; i++) {
+    if (!isPackEntry(linkPath, entries[i], sourcePath)) return true;
+  }
+  return false;
+};
+
+// Returns why the target must be left alone, or '' once it is a directory.
 const preparePackDir = (linkPath, sourcePath, targetDir) => {
   const stat = fs.lstatSync(linkPath, { throwIfNoEntry: false });
   if (!stat) {
     fs.mkdirSync(linkPath);
     return '';
   }
-  if (stat.isSymbolicLink()) {
-    const resolved = path.resolve(path.dirname(linkPath), fs.readlinkSync(linkPath));
-    if (resolved !== sourcePath) return `${targetDir} is a symlink; remove it to use packs`;
-    fs.unlinkSync(linkPath);
-    fs.mkdirSync(linkPath);
-    return '';
+  if (!stat.isSymbolicLink()) return '';
+  const resolved = path.resolve(path.dirname(linkPath), fs.readlinkSync(linkPath));
+  if (resolved !== sourcePath) return `${targetDir} is a symlink; remove it to use packs`;
+  fs.unlinkSync(linkPath);
+  fs.mkdirSync(linkPath);
+  return '';
+};
+
+const sortEntries = (linkPath, sourcePath) => {
+  const ours = new Set();
+  const theirs = new Set();
+  const entries = fs.readdirSync(linkPath, { withFileTypes: true });
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (isPackEntry(linkPath, entry, sourcePath)) ours.add(entry.name);
+    else theirs.add(entry.name);
   }
-  if (holdsOnlyPackLinks(linkPath, sourcePath)) return '';
-  return `${targetDir} holds other files; skip`;
+  return { ours, theirs };
+};
+
+const packMessage = (targetDir, changes) => {
+  const { created, removed, kept, linked } = changes;
+  const isUnchanged = created.length === 0 && removed.length === 0;
+  const status = isUnchanged ? 'Already linked' : 'Linked';
+  const message = withRemoved(`${status} ${targetDir} (${linked.length} skills)`, removed);
+  if (kept.length === 0) return message;
+  return `${message}; kept project skill ${kept.join(', ')}`;
 };
 
 const syncPackLinks = (targetDir, dirs, wanted) => {
@@ -283,43 +366,53 @@ const syncPackLinks = (targetDir, dirs, wanted) => {
   fs.mkdirSync(path.dirname(linkPath), { recursive: true });
   const reason = preparePackDir(linkPath, sourcePath, targetDir);
   if (reason !== '') return { created: [], removed: [], skipped: [targetDir], message: reason };
-  const current = fs.readdirSync(linkPath);
-  const present = new Set(current);
+  const { ours, theirs } = sortEntries(linkPath, sourcePath);
   const removed = [];
-  for (let i = 0; i < current.length; i++) {
-    const name = current[i];
+  for (const name of ours) {
     if (wanted.has(name)) continue;
     fs.unlinkSync(path.join(linkPath, name));
     removed.push(name);
   }
   const created = [];
+  const kept = [];
+  const linked = [];
   for (const name of wanted) {
-    if (present.has(name)) continue;
+    if (theirs.has(name)) {
+      kept.push(name);
+      continue;
+    }
+    linked.push(name);
+    if (ours.has(name)) continue;
     createLink(path.join(linkPath, name), path.join(sourcePath, name));
     created.push(name);
   }
   removed.sort();
   created.sort();
-  const isUnchanged = created.length === 0 && removed.length === 0;
-  const status = isUnchanged ? 'Already linked' : 'Linked';
-  const message = withRemoved(`${status} ${targetDir} (${wanted.size} skills)`, removed);
-  return { created, removed, skipped: [], message };
+  kept.sort();
+  linked.sort();
+  const message = packMessage(targetDir, { created, removed, kept, linked });
+  const hasProjectEntries = theirs.size > 0;
+  return { created, removed, kept, linked, hasProjectEntries, skipped: [], message };
 };
 
 const linkTarget = (targetDir, context) => {
   const { root, source, wanted, log, fail } = context;
   const dirs = { root, source };
-  const isPackMode = wanted !== null;
+  const linkPath = path.join(root, targetDir);
+  const hasProjectEntries = holdsProjectEntries(linkPath, path.resolve(source));
+  const isPackMode = wanted !== null || hasProjectEntries;
   const result = isPackMode
-    ? syncPackLinks(targetDir, dirs, wanted)
+    ? syncPackLinks(targetDir, dirs, wanted ?? new Set(listSkills(source)))
     : ensureSkillLinks(targetDir, dirs);
   const isSkipped = result.skipped.length > 0;
-  if (!isSkipped) ensureIgnored(targetDir, root);
   if (isPackMode && isSkipped) {
     fail(result.message);
     return 1;
   }
   log(result.message);
+  if (isSkipped) return 0;
+  const names = isPackMode ? result.linked : null;
+  updateIgnoreFiles(targetDir, context, names, isPackMode && result.hasProjectEntries);
   return 0;
 };
 
@@ -396,6 +489,9 @@ const run = async (options) => {
   const fail = (message) => {
     errorOutput.write(`${message}\n`);
   };
+  const warn = (message) => {
+    errorOutput.write(`warning: ${message}\n`);
+  };
   const source = path.join(root, PACKAGE_SKILLS);
   if (!fs.existsSync(source)) {
     fail(`${PACKAGE_NAME}: not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
@@ -407,7 +503,7 @@ const run = async (options) => {
     fail(`${PACKAGE_NAME}: ${selection.error}`);
     return 1;
   }
-  const context = { root, source, wanted: selection.wanted, log, fail };
+  const context = { root, source, wanted: selection.wanted, log, fail, warn };
   const ide = (rest[0] || env.LINK_IDE || '').toLowerCase();
   if (ide) return linkIde(ide, context);
   const detected = detectTargetDirs(root);

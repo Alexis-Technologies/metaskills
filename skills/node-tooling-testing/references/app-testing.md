@@ -1,4 +1,4 @@
-# App testing: Vitest, Playwright, autocannon, k6
+# App testing: Vitest
 
 Reference for `node-tooling-testing`, following `auth8` ADR-009. One tool per
 level:
@@ -12,7 +12,8 @@ level:
 | Load                 | autocannon, k6               | Quick throughput, scripted load scenarios |
 
 Layout: `src/**/tests/` for unit and integration, `e2e/` for Playwright,
-`load/` for load scripts.
+`load/` for load scripts. Playwright, autocannon and k6 are in
+[e2e-load.md](e2e-load.md).
 
 ## Vitest configuration
 
@@ -24,13 +25,56 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     exclude: ['src/**/*.integration.test.ts'],
+    clearMocks: true,
+    restoreMocks: true,
+    unstubEnvs: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/domain/**', 'src/**/app/**'],
+      thresholds: { lines: 90, branches: 85, functions: 90, statements: 90 },
+    },
   },
 });
 ```
 
+- `clearMocks` drops call history before each test, and `restoreMocks` puts back
+  what `vi.spyOn` replaced. Without them, one test's mock leaks into the next.
+- The thresholds cover `domain/` and `app/`, where the logic is. `infra/` and
+  `presentation/` are proved by integration tests. Start where the code is,
+  then raise the numbers, never lower them.
+- Cover every `throw`, every branch and every validation rule. A line that
+  ran in a test without an assertion proves nothing.
+
 A separate `vitest.integration.config.ts` includes only
 `src/**/*.integration.test.ts` and raises `testTimeout` and `hookTimeout`:
 `mongodb-memory-server` may download a binary on first run.
+
+## Names
+
+`describe` names the subject: a function (`decode`), an aggregate
+(`Session`), a route (`POST /v1/sessions`) or a feature (`organization
+invites`). It never starts with `should`. Every `it` does, followed by the
+observable behaviour in the base verb. Nest `describe('when …')` for scenarios
+of one subject.
+
+| Before | After |
+| --- | --- |
+| `it('returns the decoded payload')` | `it('should return the decoded payload')` |
+| `it('throws on bad input')` | `it('should throw on bad input')` |
+| `describe('should decode')` | `describe('decode')` |
+
+One behaviour per `it`: a title that needs "and" is two tests.
+
+## Data and fakes
+
+- Build inputs with a small factory per test, `makePayload({ role: 'admin' })`,
+  not a shared mutable fixture.
+- Pass fakes through the service's dependencies. Type the port narrowly (the
+  service needs `info` and `warn` of a logger), so a fake needs no cast. Use
+  `as unknown as T` only for a third-party type you cannot narrow.
+- `vi.spyOn(object, 'method')` observes one real method; `vi.mock` is for an
+  import you cannot inject. Never mock the subject or a value object.
+- `toEqual` compares values, `toBe` compares identity.
 
 ## AAA with an injected clock and id
 
@@ -209,67 +253,9 @@ describe('users repository', () => {
 The repository under test is the project's own DAL (`node-data-access`). The
 collection calls above only keep the example short.
 
-## Playwright (E2E)
+## Benchmarks
 
-```ts
-import { expect, test } from '@playwright/test';
-
-test.describe('sign-in', () => {
-  test('should open the dashboard after a valid sign-in', async ({ page }) => {
-    // Arrange
-    await page.goto('/sign-in');
-
-    // Act
-    await page.getByLabel('Email').fill('user@example.com');
-    await page.getByLabel('Password').fill(process.env.E2E_USER_PASSWORD ?? '');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    // Assert
-    await expect(page).toHaveURL(/dashboard/);
-  });
-});
-```
-
-Prefer role and label locators to CSS selectors. Seed users through the API
-or a fixture, never through another test.
-
-## autocannon (quick throughput)
-
-```js
-const autocannon = require('autocannon');
-
-const main = async () => {
-  const url = process.env.BASE_URL;
-  const result = await autocannon({ url, connections: 10, duration: 10 });
-  const failed = result.errors + result.non2xx;
-  console.log({ rps: result.requests.average, p99: result.latency.p99, failed });
-  if (failed > 0) process.exitCode = 1;
-};
-
-main();
-```
-
-## k6 (scenarios)
-
-```js
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
-export const options = {
-  vus: 20,
-  duration: '30s',
-  thresholds: {
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<200'],
-  },
-};
-
-export default () => {
-  const response = http.get(`${__ENV.BASE_URL}/health`);
-  check(response, { 'status is 200': (result) => result.status === 200 });
-  sleep(1);
-};
-```
-
-Run with `k6 run -e BASE_URL=http://localhost:3000 load/health.js`. k6 is a
-separate binary, not an npm package, and its scripts run in its own runtime.
+`vitest bench` runs every case in one process, so a later case runs on call
+sites the earlier ones already made polymorphic. Use it for a quick relative
+check of a pure function. Before a decision, run each case in its own process,
+as the performance notes of `js-conventions` say.

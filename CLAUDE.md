@@ -51,7 +51,7 @@ docs/                      the VitePress site
 
 ## Skills
 
-`skills/` holds 34 skills in seven packs, listed in `src/packs.json`. Every skill is in exactly one
+`skills/` holds 37 skills in seven packs, listed in `src/packs.json`. Every skill is in exactly one
 pack, and `core` is always linked.
 
 - **From upstream v1.0.6, adapted to the Alexis toolchain:** `js-conventions`, `npm-publish`,
@@ -59,8 +59,11 @@ pack, and `core` is always linked.
   frontmatter. `metautil-data-structures` differs from upstream only in its description.
 - **Rewritten:** `error-handling`, from upstream and the deeper course material.
   `js-conventions/performance.md` also took the V8 material.
-- **Adapted from the course-based skills:** the other 27. `docs/guide/upstream.md` records the
+- **Adapted from the course-based skills:** 27 more. `docs/guide/upstream.md` records the
   snapshot and what was left out.
+- **Written from the auth8 skills:** `node-config`, `node-deploy` and `node-observability`, brought
+  up to the current stack. The rest of auth8's material went into the existing skills, and the
+  page records what was dropped.
 
 Skills follow two profiles, and the project's own configuration wins over both:
 

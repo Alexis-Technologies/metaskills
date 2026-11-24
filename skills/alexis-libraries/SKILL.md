@@ -1,6 +1,6 @@
 ---
 name: alexis-libraries
-description: Picks and uses @alexify kerberos, wrpc, migronaut, metaschema, protoarray, syncom, mailer. Use when choosing or calling one of these packages
+description: Pick and use @alexify kerberos, wrpc, migronaut, metaschema, protoarray, syncom, mailer. Use when choosing or calling one of them
 ---
 
 <!-- Rewritten from the Metarhia libraries cheat sheet as a decision guide for the @alexify packages.
@@ -66,7 +66,7 @@ MongoDB driver, BullMQ) are injected by the application.
 | Hand-written ACL or RBAC | `@alexify/kerberos` |
 | globalstorage | `@alexify/syncom`, once it is published |
 | metautil helpers | native APIs, or `metautil-data-structures` for its ADTs |
-| metaconfiguration | 12-factor config with `env-schema` |
+| metaconfiguration | `node-config`: one schema, loaded once |
 | metatests | `node:test` in libraries, Vitest in apps |
 
 ## Rules

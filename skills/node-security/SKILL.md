@@ -1,6 +1,6 @@
 ---
 name: node-security
-description: Node.js security hardening for DoS, injection, XSS, CSRF, SSRF, secrets and supply chain. Use when writing or reviewing servers or outbound calls
+description: Node.js security hardening for DoS, injection, XSS, CSRF, SSRF, secrets, supply chain. Use when writing or reviewing servers or outbound calls
 ---
 
 # Node.js Application Security
@@ -13,7 +13,7 @@ trusting framework defaults, hook order or the `vm` module.
 | ---------- | ---------------------------------------- | --------------------------------------------------------------- |
 | Limits     | Constructor options with safe defaults   | Fastify options, `@fastify/rate-limit`, `@fastify/under-pressure` |
 | Headers    | None, unless it serves HTTP              | `@fastify/helmet`                                               |
-| Secrets    | Passed in by the caller, never read from env | 12-factor env, validated by `env-schema`                     |
+| Secrets    | Passed in by the caller, never read from env | 12-factor env, one schema (`node-config`)                   |
 | Outbound   | Injected client or `node:http`           | undici with a guarded `lookup`                                  |
 | Data       | Driver is injected                       | Native `mongodb`, own DAL                                       |
 
@@ -177,7 +177,7 @@ Guard and tests: [references/web-attacks.md](references/web-attacks.md).
 - No secrets in the repository, images, logs, error messages or client bundles. Separate them per
   environment and rotate them.
 - **App:** secrets come from the environment (12-factor, ADR-006). Validate them at startup with
-  `env-schema` and fail fast, read them only through that validated config, and inject them from the
+  the config schema (`node-config`) and fail fast, read them only through that validated config, and inject them from the
   platform's secret manager rather than a committed file. No `NODE_ENV` branches.
 - **Never log them.** Do not log `process.env` or the config object. Set Pino `redact` for
   `authorization`, `cookie` and every secret key.

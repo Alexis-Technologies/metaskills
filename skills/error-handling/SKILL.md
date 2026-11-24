@@ -1,6 +1,6 @@
 ---
 name: error-handling
-description: Classify, wrap, retry and report errors in JS, TS and Node.js. Use when code catches, retries or maps failures, or sets process-level error handlers
+description: Classify, wrap, retry and report errors in JS and Node.js, circuit breakers included. Use when code catches, retries or maps failures
 ---
 
 # Error Handling
@@ -231,6 +231,10 @@ For user requests keep the total under the request timeout and fall back to a
 cache when possible. MongoDB transactions retry on `TransientTransactionError`
 labels instead of codes (`node-data-access`).
 
+A dependency that keeps failing needs a circuit breaker around the retried call,
+so requests fail fast instead of piling up:
+[references/circuit-breaker.md](references/circuit-breaker.md).
+
 ## Process level
 
 - An error that reaches `uncaughtException` or `unhandledRejection` is a bug in
@@ -251,7 +255,8 @@ process.on('uncaughtException', (error, origin) => {
 });
 ```
 
-`shutdown` is the idempotent routine from `node-graceful-shutdown`.
+`shutdown` is the idempotent routine from `node-graceful-shutdown`. Under `fastify start`,
+fastify-cli installs these handlers: do not add your own.
 
 ## Logging
 

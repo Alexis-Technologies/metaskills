@@ -365,3 +365,44 @@ main();
 In production the endpoint list comes from configuration or a membership registry, failover
 acceptance is decided by membership rather than a client flag, and clients cache the list and retry
 the owner first to reuse its warm cache.
+
+## 6. Serving the last good result under pressure
+
+Verified with Fastify 5.8 and `@fastify/under-pressure` 9.0 on Node.js 24.14: under pressure the
+route answered 200 with its cached body and an `Age` header, answered 503 with `Retry-After` while
+it had nothing cached yet, and every other route answered 503.
+
+A route-level `pressureHandler` runs instead of the default 503. A value it returns is sent as the
+reply; `undefined` lets the request through. Use it only for reads where a stale answer is
+acceptable (plans, settings, public keys), never for permissions, balances or sign-in.
+
+```ts
+// modules/catalog/presentation/plans.routes.ts
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+
+const STALE_MAX_MS = 60_000;
+
+export const planRoutes = async (fastify: FastifyInstance) => {
+  let lastGood: { body: unknown; at: number } | null = null;
+
+  const serveStale = (request: FastifyRequest, reply: FastifyReply) => {
+    const ageMs = lastGood === null ? Infinity : Date.now() - lastGood.at;
+    if (lastGood === null || ageMs > STALE_MAX_MS) {
+      reply.code(503).header('retry-after', '5');
+      return { code: 'EUNAVAILABLE', message: 'Service is busy' };
+    }
+    reply.header('age', String(Math.floor(ageMs / 1000)));
+    return lastGood.body;
+  };
+
+  fastify.get('/v1/plans', { config: { pressureHandler: serveStale } }, async () => {
+    const body = await fastify.plans.list();
+    lastGood = { body, at: Date.now() };
+    return body;
+  });
+};
+```
+
+- The last good result is per process, which is the cheapest read under pressure. A shared cache
+  (`cacheable`) is another network call at the worst moment.
+- Both bodies must match the route's response schema, the 503 one included (`node-http-server`).

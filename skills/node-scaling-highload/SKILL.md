@@ -1,6 +1,6 @@
 ---
 name: node-scaling-highload
-description: Plans Node.js scaling with replicas, Redis state, BullMQ, wrpc clusters and load shedding. Use for topology, overload, lost sessions, restarts
+description: Node.js scaling with replicas, Redis state, BullMQ, wrpc clusters and load shedding. Use for topology, overload, lost sessions, restarts
 ---
 
 # Scaling Node.js and High-Load Design
@@ -26,7 +26,8 @@ without dropping requests. Simple first: one well-written process, then more ins
 - `auth8-web` is a static Vue build on **Vercel**'s CDN, so Node never serves static assets.
 - MongoDB is managed **Atlas**, the source of truth. Redis is managed **Redis Cloud**.
 - Platformatic is not adopted. This is a PoC choice: managed Kubernetes may follow, and plain images
-  keep that move free of application changes. Do not couple code to `fly.toml`.
+  keep that move free of application changes. Do not couple code to `fly.toml`. Images, `fly.toml`
+  and the pipeline: `node-deploy`.
 
 ## Defaults
 
@@ -153,6 +154,8 @@ Details: [references/wrpc-cluster.md](references/wrpc-cluster.md).
 - A `healthCheck` that fails puts the whole service under pressure. Do not tie it to Redis: losing a
   cache must not turn into a total outage.
 - Keep the 503 intact through the error handler (`node-http-server`).
+- A read whose staleness is acceptable can answer from its last good result instead of 503: recipe 6
+  in [references/recipes.md](references/recipes.md).
 - Bound concurrent work per process: wrpc `queue: { concurrency, size, timeout }` for procedures, a
   semaphore with a bounded queue for the rest (`js-async-concurrency`). Overflow answers 503 at once.
 - Every request has a deadline: `handlerTimeout` and `request.signal` on routes without a body,

@@ -1,6 +1,6 @@
 ---
 name: js-conventions
-description: Alexis JS and TS code style for naming, modules, contracts, iteration, async and performance. Apply when writing, editing, refactoring or reviewing .js, .mjs, .cjs, .ts or .d.ts files
+description: Alexis JS and TS code style for naming, modules, iteration, async, performance. Apply when writing or reviewing .js, .mjs, .cjs, .ts or .d.ts files
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-conventions) for the Alexis toolchain:
@@ -28,7 +28,8 @@ runtime.
 - Run `pnpm format` before fixing remaining issues by hand. Suppress a rule only for an intentional
   construct, with a targeted `// oxlint-disable-next-line <rule>`
 - Preserve the existing module system, source and declaration file types, and
-  package layout unless the task asks to change them
+  package layout unless the task asks to change them. Before adding a file, read one of its kind
+  nearby and repeat its shape and names
 - Resolve runtime packages from the registry (or the project's declared source of truth), not from sibling `file:` links in a gitignored lockfile that other machines will not have
 
 ## Project profile
@@ -44,7 +45,7 @@ Read `package.json`, `.oxlintrc.json`, `.oxfmtrc.json`, and `.editorconfig` firs
 
 ## Formatting
 
-For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within the project's `printWidth` (100 or 120) except URLs. Let oxfmt and `.editorconfig` handle spacing, braces, and indentation (2 spaces, LF).
+For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within the project's `printWidth` (100 or 120) except URLs. Let oxfmt and `.editorconfig` handle spacing and indentation (2 spaces, LF). Braces follow oxlint `curly: multi-line`: none for a body on the line of its `if` or loop, braces once it wraps.
 
 ## Naming
 
@@ -123,16 +124,9 @@ module.exports = { MAX_WIDTH, formatValue, Session };
 
 ```js
 // BAD
-const renderOptions = {
-  width: wrapWidth,
-  outputs: outputs,
-  tick: tick
-};
-```
-
-```js
+const renderOptions = { width: wrapWidth, outputs: outputs, tick: tick };
 // GOOD
-const renderOptions = { width, outputs, tick, hover };
+const renderOptions = { width, outputs, tick };
 ```
 
 ## Variables and empty values
@@ -249,7 +243,7 @@ for (let i = 0; i < names.length; i++) {
   enumeration cache. This is right for hash-table objects but wrong for
   records. Never delete a record field or build a record or prototype with
   `Object.create(null)`
-- Prototypes are set up once at module load and never changed afterwards: no methods added or deleted at runtime (deleting counts as a change), never touch `Object.prototype` or other built-in prototypes. Each change invalidates every cached lookup below it
+- Prototypes are set up once at module load and never changed afterwards: no methods added or deleted at runtime (deleting counts as a change), never touch `Object.prototype` or other built-in prototypes. Each change invalidates every cached lookup below it. Metaprogramming that generates a class or prototype runs at module load too
 
 Library/system code and hot paths also follow [performance.md](performance.md): V8 inline caches, element kinds, numeric fields, module state, `JSON.stringify` fast path, and how to measure.
 

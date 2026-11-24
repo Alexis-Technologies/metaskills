@@ -1,6 +1,6 @@
 ---
 name: node-performance-profiling
-description: Measure and profile Node.js with benchmarks, perf_hooks, CPU and heap profiles. Use when code is slow, memory grows or before any optimization
+description: Measure and profile Node.js with benchmarks, perf_hooks, CPU and heap profiles. Use when code is slow, memory grows or before optimizing
 ---
 
 # Node.js Performance Measurement and Profiling
@@ -171,6 +171,8 @@ A ready harness that follows them is in
   telemetry must not become the bottleneck or keep the process alive.
 - Feed ELU and loop delay into load shedding and autoscaling
   (`node-scaling-highload`).
+- Export them with OpenTelemetry and alert on them as `node-observability`
+  shows.
 
 ## Patterns
 

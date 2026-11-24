@@ -1,6 +1,6 @@
 ---
 name: metautil-data-structures
-description: Operate metautil ADTs (ConsList, Struct, Queue, Stack, Deque, List, Trie, UnrolledList, CircularBuffer). Use when importing or calling these classes from metautil
+description: metautil ADTs (ConsList, Struct, Queue, Stack, Deque, List, Trie, UnrolledList, CircularBuffer). Use when importing these classes from metautil
 ---
 
 # Metautil Data Structures

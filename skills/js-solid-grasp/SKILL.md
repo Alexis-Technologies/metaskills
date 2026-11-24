@@ -1,6 +1,6 @@
 ---
 name: js-solid-grasp
-description: Apply SOLID and GRASP to multi-paradigm async JS and TS. Use when designing or reviewing modules and contracts, or refactoring god classes
+description: SOLID and GRASP in JS and TS. Use when designing or reviewing modules and contracts, or refactoring god classes
 ---
 
 # SOLID and GRASP for JavaScript and Node.js
@@ -249,7 +249,7 @@ console.log(listNames([{ filename: 'a.txt' }, file]), await attach(file));
 ### DIP: the service owns contracts, the plugin tree wires them
 
 ```ts
-// app/accounts.ports.ts: imports nothing from infra
+// domain/accounts.repository.ts
 export interface Account {
   login: string;
   hash: string;
@@ -257,6 +257,8 @@ export interface Account {
 export interface Accounts {
   findByLogin(login: string): Promise<Account | null>;
 }
+
+// app/accounts.ports.ts: imports nothing from infra
 export interface Hasher {
   verify(password: string, hash: string): Promise<boolean>;
 }

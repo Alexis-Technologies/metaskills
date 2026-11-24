@@ -60,6 +60,22 @@ export default main;
 - Inside one directory, autoload orders plugins by their `dependencies`.
 - The error handler is set once, here or in its own plugin (`error-handling`).
 
+### fastify-cli settings
+
+fastify-cli reads each flag from a `FASTIFY_*` variable, and it loads `.env` from the working
+directory when one exists (`process.loadEnvFile`). Validate these with the rest of the config
+(`node-config`), and keep `.env` out of images.
+
+| Variable | Flag | Default | Set it to |
+| --- | --- | --- | --- |
+| `FASTIFY_ADDRESS` | `-a` | localhost; `0.0.0.0` only when it detects Docker or Kubernetes | `0.0.0.0` in every deployed environment |
+| `FASTIFY_PORT` | `-p` | `PORT`, then 3000 | The port the platform routes to |
+| `FASTIFY_LOG_LEVEL` | `-l` | **`fatal`** | `info` in production |
+| `FASTIFY_CLOSE_GRACE_DELAY` | `-g` | **500 ms** | The exit deadline, below the kill timeout (`node-graceful-shutdown`) |
+| `FASTIFY_PLUGIN_TIMEOUT` | `-T` | 10 s | Enough for the slowest connection at boot |
+| `FASTIFY_IMPORT` | `-i` | none | Not for tracing: not awaited, and runs after Fastify is loaded. Use `node --import` (`node-observability`) |
+| `FASTIFY_PRETTY_LOGS` | `-P` | `false` | `true` locally only, never by `NODE_ENV` |
+
 ## Shared plugin
 
 ```ts
