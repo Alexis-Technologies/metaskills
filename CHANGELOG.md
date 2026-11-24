@@ -1,13 +1,13 @@
 # Changelog
 
-All notable changes to **`@alexify/metaskills`** are documented in this file.
+All notable changes to **alexiskills** (`@alexify/metaskills` on npm) are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The first version of `@alexify/metaskills`, a mechanical fork of
+The first version of alexiskills, a mechanical fork of
 [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6 (commit `ab13efe`). It is
 not published yet.
 
@@ -34,7 +34,8 @@ not published yet.
   `.gitignore` and `.npmignore`, so the project skills stay tracked.
 - **Repository gates.** oxlint, oxfmt, `node:test` with c8, context budgets for skills, a tarball
   check, a generated skill catalog and CI on Node.js 18 to 26.
-- **Documentation site.** A VitePress guide and a catalog generated from the skills.
+- **Documentation site.** A VitePress guide and a catalog generated from the skills, at
+  <https://alexiskills.vercel.app> with a sitemap and canonical URLs.
 
 ### Changed
 

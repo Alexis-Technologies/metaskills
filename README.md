@@ -1,4 +1,4 @@
-# metaskills
+# alexiskills
 
 [![CI](https://github.com/Alexis-Technologies/metaskills/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexis-Technologies/metaskills/actions/workflows/ci.yml)
 [![license](https://img.shields.io/github/license/Alexis-Technologies/metaskills)](./LICENSE)
@@ -7,7 +7,9 @@
 Windsurf, VS Code and Gemini: code style, data structures, design patterns, error handling and
 release preparation, linked into a project by one command.
 
-> **Status: not published yet.** `@alexify/metaskills` is a mechanical fork of
+📖 Documentation: [alexiskills.vercel.app](https://alexiskills.vercel.app)
+
+> **Status: not published yet.** alexiskills (`@alexify/metaskills` on npm) is a mechanical fork of
 > [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, adapted to the Alexis
 > toolchain. Until it is on npm, install it from a tarball.
 
@@ -62,7 +64,7 @@ pnpm exec alexiskills claude --pack backend,security
 | `security` | 3      | Application security, crypto and authentication, access control       |
 | `realtime` | 2      | WebSocket on wrpc, local-first sync                                   |
 
-The [catalog](docs/reference/skills.md) lists every skill.
+The [catalog](https://alexiskills.vercel.app/reference/skills) lists every skill.
 
 ## Development
 

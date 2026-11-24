@@ -5,7 +5,7 @@ description: How this repository relates to metarhia/metaskills and how changes 
 
 # Upstream
 
-`@alexify/metaskills` is a mechanical fork of
+alexiskills (`@alexify/metaskills` on npm) is a mechanical fork of
 [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, commit `ab13efe`. The files
 were copied into this repository. It is not a GitHub fork, it shares no git history with upstream,
 and it has no `upstream` remote.

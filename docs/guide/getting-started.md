@@ -1,12 +1,13 @@
 ---
 title: Getting Started
-description: Install @alexify/metaskills and link its skills into your IDE.
+description: Install alexiskills and link its skills into your IDE.
 ---
 
 # Getting Started
 
 ::: warning Not on npm yet
-`@alexify/metaskills` is not published. Until it is, install it from a tarball built from a clone.
+alexiskills is not published: its npm package, `@alexify/metaskills`, is not on the registry yet.
+Until it is, install it from a tarball built from a clone.
 :::
 
 ## Install from a clone

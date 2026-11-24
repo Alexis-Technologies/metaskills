@@ -10,7 +10,7 @@ const packageRoot = path.resolve(__dirname, '../..');
 const TARGET_DIR = '.cursor/skills';
 
 const createFixture = (names) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'metaskills-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'alexiskills-'));
   const source = path.join(root, 'skills');
   for (let i = 0; i < names.length; i++) {
     const skillPath = path.join(source, names[i]);

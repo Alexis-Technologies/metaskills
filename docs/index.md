@@ -1,16 +1,16 @@
 ---
 layout: home
 
-title: metaskills
+title: alexiskills
 titleTemplate: Agent skills for the Alexis JavaScript stack
 
 hero:
-  name: metaskills
+  name: alexiskills
   text: Agent skills for the Alexis JavaScript stack
   tagline: Reusable instructions for Claude Code, Cursor, Windsurf, VS Code and Gemini, linked into a project by one command.
   image:
     src: /logo-mark.svg
-    alt: metaskills
+    alt: alexiskills
   actions:
     - theme: brand
       text: Get Started

@@ -1,6 +1,6 @@
 ---
 title: Skills
-description: Every skill of @alexify/metaskills and when an agent uses it.
+description: Every skill of alexiskills and when an agent uses it.
 ---
 
 # Skills

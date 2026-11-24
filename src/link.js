@@ -3,6 +3,7 @@ const path = require('node:path');
 const readline = require('node:readline');
 
 const PACKAGE_NAME = '@alexify/metaskills';
+const COMMAND = 'alexiskills';
 // A stable path under pnpm too: the real one in .pnpm/ changes with every version.
 const PACKAGE_SKILLS = path.join('node_modules', '@alexify', 'metaskills', 'skills');
 const IDE_TARGETS = new Map([
@@ -64,7 +65,8 @@ const isOwnedLink = (linkPath, sourcePath) => {
 
 // Agents read <target>/<skill-name>/SKILL.md. The target from the IDE table
 // is the symlink, so .cursor/skills points at the package skills folder.
-// Older releases added a metaskills directory under that target.
+// Older releases added one grouped link under that target, LEGACY_LINK, which keeps the
+// metaskills name on disk.
 const removeOwnedLinks = (dirPath, sourcePath) => {
   const removed = [];
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -494,13 +496,13 @@ const run = async (options) => {
   };
   const source = path.join(root, PACKAGE_SKILLS);
   if (!fs.existsSync(source)) {
-    fail(`${PACKAGE_NAME}: not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
+    fail(`${COMMAND}: not installed here. Run: pnpm add -D ${PACKAGE_NAME}`);
     return 1;
   }
   const { rest, names, error } = parsePackOption(args);
   const selection = error === '' ? resolveWanted(names, source) : { wanted: null, error };
   if (selection.error !== '') {
-    fail(`${PACKAGE_NAME}: ${selection.error}`);
+    fail(`${COMMAND}: ${selection.error}`);
     return 1;
   }
   const context = { root, source, wanted: selection.wanted, log, fail, warn };

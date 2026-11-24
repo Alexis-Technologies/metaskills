@@ -18,6 +18,8 @@ const ROOT = path.join(__dirname, '..');
 const SKILLS_DIR = path.join(ROOT, 'skills');
 const CATALOG = path.join(ROOT, 'docs', 'reference', 'skills.md');
 const LLMS = path.join(ROOT, 'docs', 'public', 'llms.txt');
+// The project is called alexiskills; the repository and the npm package keep the metaskills name.
+const NAME = 'alexiskills';
 const REPOSITORY = 'https://github.com/Alexis-Technologies/metaskills';
 
 const indexPacks = (list) => {
@@ -52,7 +54,7 @@ const renderCatalog = (skills) => {
   const head = [
     '---',
     'title: Skills',
-    'description: Every skill of @alexify/metaskills and when an agent uses it.',
+    `description: Every skill of ${NAME} and when an agent uses it.`,
     '---',
     '',
     '# Skills',
@@ -71,10 +73,12 @@ const renderCatalog = (skills) => {
 
 const renderLlms = (skills) => {
   const head = [
-    `# ${pkg.name}`,
+    `# ${NAME}`,
     '',
     `> ${pkg.description}`,
     '',
+    `- Package: ${pkg.name}`,
+    `- Docs: ${pkg.homepage}`,
     `- Node.js: ${pkg.engines.node}`,
     `- License: ${pkg.license}`,
     '',

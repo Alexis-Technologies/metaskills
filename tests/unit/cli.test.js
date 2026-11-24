@@ -9,7 +9,7 @@ const BIN = path.resolve(__dirname, '../../bin/alexiskills.js');
 const PACKAGE_SKILLS = path.join('node_modules', '@alexify', 'metaskills', 'skills');
 
 const createProject = (isInstalled = true) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'metaskills-cli-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'alexiskills-cli-'));
   if (isInstalled) {
     const skillPath = path.join(root, PACKAGE_SKILLS, 'alpha');
     fs.mkdirSync(skillPath, { recursive: true });
@@ -39,6 +39,7 @@ test('without the package it prints a hint and installs nothing', () => {
   try {
     const result = runCli(root, ['claude']);
     assert.strictEqual(result.status, 1);
+    assert.match(result.stderr, /^alexiskills: not installed here\./);
     assert.match(result.stderr, /pnpm add -D @alexify\/metaskills/);
     assert.strictEqual(fs.existsSync(path.join(root, 'node_modules')), false);
     assert.strictEqual(fs.existsSync(path.join(root, '.claude')), false);

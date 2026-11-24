@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve metaskills. This page covers the rules that are easy to break by
+Thanks for helping improve alexiskills. This page covers the rules that are easy to break by
 accident; [CLAUDE.md](CLAUDE.md) describes how the repository fits together.
 
 ## Getting set up
