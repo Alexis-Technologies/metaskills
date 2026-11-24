@@ -97,8 +97,10 @@ Run the command on every install, from `prepare` in the project's `package.json`
 
 - The links point at `node_modules/@alexify/metaskills/skills`, a path that does not change between
   versions, so `pnpm update @alexify/metaskills` updates the content at once.
-- New skills of the chosen packs are linked, and removed ones unlinked, by the next `pnpm install`.
-- `prepare` runs on every `pnpm install`, `pnpm install --prod` included. In a Docker image, install
+- New skills of the chosen packs are linked, and removed ones unlinked, by the install that
+  `pnpm update @alexify/metaskills` runs. pnpm skips `prepare` when an install changes nothing, so
+  after editing the packs run `pnpm run prepare`.
+- `prepare` runs on every install that changes something, `pnpm install --prod` included. In a Docker image, install
   everything first and drop devDependencies with `pnpm deploy --prod` or `pnpm prune --prod`, as the
   `node-deploy` skill shows. A production-only install runs `prepare` without the command and fails.
 - A run without `--pack` links all skills, so keep the same options everywhere the command runs.

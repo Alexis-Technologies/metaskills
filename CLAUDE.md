@@ -10,9 +10,9 @@ is `Alexis-Technologies/metaskills`. It is a mechanical fork of
 [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, commit `ab13efe`: the files
 were copied, there is no GitHub fork, no shared git history and no `upstream` remote.
 
-**Nothing is published yet.** Do not run `pnpm publish`, deploy the docs or create a release
-unless the maintainer asks for that step. `package.json` has `private: false`, so nothing else
-stops a publish.
+**1.0.0 is on npm.** Releases stay manual: do not run `pnpm publish`, push a tag, deploy the docs
+or create a release unless the maintainer asks for that step. `package.json` has `private: false`,
+so nothing else stops a publish.
 
 **The course-based skills are imported and adapted.** This repository is public, so a push publishes
 them: push only when the maintainer asks.
