@@ -31,7 +31,7 @@ was not queried: before pinning, compare with `pnpm view <package> version`, and
 | `@alexify/kerberos` | 4.3.0 | 18+ | released | authorization policies |
 | `@alexify/wrpc` | 2.2.0 | **22+** | released | realtime RPC |
 | `@alexify/migronaut` | 2.5.0 | **22.18+** | released | MongoDB migrations |
-| `@alexify/metaschema` | 3.4.0 | 18+ | released | single source of schemas |
+| `@alexify/metaschema` | 3.4.1 | 18+ | released | single source of schemas |
 | `@alexify/protoarray` | 2.1.0 | 18+ | released | positional JSON serialization |
 | `@alexify/mailer` | 1.2.1 | **22+** | released, email only | email and its reliability layer |
 | `@alexify/syncom` | 0.0.1 | **24+** | **not published** | local-first sync engine |

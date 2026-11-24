@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-24
+
+A patch release: `node-config` follows `@alexify/metaschema` 3.4.1, and the guide says when
+`prepare` relinks the skills.
+
+### Changed
+
+- **`node-config` on metaschema 3.4.1.** An environment schema is a plain definition again, and
+  `Config` is `InferOutput` of it: 3.4.1 reads upper-case keys as fields, so the `schema` wrapper
+  and the generated `config.types.ts` are gone. `alexis-libraries` lists 3.4.1.
+- **When `prepare` runs.** The packs guide says that pnpm skips it when an install changes nothing,
+  so a change of packs needs `pnpm run prepare`.
+
 ## [1.0.0] - 2026-11-24
 
 The first version of alexiskills, a mechanical fork of
@@ -124,7 +137,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Alexis-Technologies/metaskills/releases/tag/v1.0.0
 [upstream-1.0.6]: https://github.com/metarhia/metaskills/compare/v1.0.5...v1.0.6
 [upstream-1.0.5]: https://github.com/metarhia/metaskills/compare/v1.0.4...v1.0.5

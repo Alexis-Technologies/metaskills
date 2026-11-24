@@ -4,7 +4,7 @@ description: 12-factor Node.js config with one validated env schema, secrets and
 ---
 
 <!-- Alexis stack. Written from the auth8 configuration skill and ADR-006 (12-factor, env-schema,
-     no NODE_ENV), with @alexify/metaschema as the schema source. Checked with metaschema 3.4. -->
+     no NODE_ENV), with @alexify/metaschema as the schema source. Checked with metaschema 3.4.1. -->
 
 # Node.js configuration
 
@@ -73,26 +73,24 @@ tests what production runs.
 ```ts
 // src/config.ts
 import { Schema } from '@alexify/metaschema';
+import type { InferOutput } from '@alexify/metaschema';
 import { register as registerCoerce } from '@alexify/metaschema/coerce';
 import { register as registerFormats } from '@alexify/metaschema/formats';
-
-import type { Config } from './config.types.ts';
 
 registerCoerce();
 registerFormats();
 
-// `schema` wraps the fields: metaschema reads a first key that starts with a capital letter as a
-// kind and drops it from the fields, so `{ LOG_LEVEL: ... }` alone loses LOG_LEVEL.
-export const ConfigSchema = new Schema('Config', {
-  schema: {
-    LOG_LEVEL: { enum: ['fatal', 'error', 'warn', 'info', 'debug', 'trace'], default: 'info' },
-    MONGODB_URL: { type: 'string', format: 'uri', length: { max: 2048 } },
-    REDIS_URL: { type: 'string', format: 'uri', length: { max: 2048 } },
-    SESSION_SECRET: { type: 'string', length: { min: 32, max: 256 } },
-    SHUTDOWN_DRAIN_TIMEOUT_MS: { type: 'integer', min: 0, max: 300_000, default: 20_000 },
-    FEATURE_SSO: { type: 'boolean', default: false },
-  },
-});
+const definition = {
+  LOG_LEVEL: { enum: ['fatal', 'error', 'warn', 'info', 'debug', 'trace'], default: 'info' },
+  MONGODB_URL: { type: 'string', format: 'uri', length: { max: 2048 } },
+  REDIS_URL: { type: 'string', format: 'uri', length: { max: 2048 } },
+  SESSION_SECRET: { type: 'string', length: { min: 32, max: 256 } },
+  SHUTDOWN_DRAIN_TIMEOUT_MS: { type: 'integer', min: 0, max: 300_000, default: 20_000 },
+  FEATURE_SSO: { type: 'boolean', default: false },
+} as const;
+
+export const ConfigSchema = new Schema('Config', definition);
+export type Config = InferOutput<typeof definition>;
 
 export class ConfigError extends Error {
   readonly code = 'ECONFIG';
@@ -117,27 +115,11 @@ export const loadConfig = (env: Record<string, string | undefined>): Readonly<Co
 - `unknown: 'strip'` drops the rest of the environment (`PATH`, `HOME`), so the result holds only
   declared keys.
 - Nothing is read at import time, so a test imports the module without an environment.
-
-### The type
-
-metaschema 3.4 cannot infer a type from upper-case keys: `Infer` and `InferOutput` give a union of
-shapes, each missing one key, because a type cannot know which key comes first. Generate the type
-from the schema instead and commit it:
-
-```ts
-// scripts/gen-config-types.ts, run by `pnpm gen:types`
-import { writeFileSync } from 'node:fs';
-
-import { toTypeScript } from '@alexify/metaschema/generators';
-
-import { ConfigSchema } from '../src/config.ts';
-
-const header = '// Generated from ConfigSchema by `pnpm gen:types`. Do not edit.\n';
-writeFileSync('src/config.types.ts', `${header}export ${toTypeScript(ConfigSchema)}\n`);
-```
-
-CI runs `pnpm gen:types` and `git diff --exit-code src/config.types.ts`, so the type never drifts
-from the schema.
+- `InferOutput` is the parsed side: a key with a default is required in `Config`. `as const` keeps
+  the enum literals in the type.
+- **Require `@alexify/metaschema` `^3.4.1`.** Before it, a struct whose first key started with a
+  capital letter read that key as a kind and dropped it, so an environment schema lost its first
+  variable, and `Infer` left upper-case keys out of the type.
 
 ### The plugin
 
@@ -145,8 +127,7 @@ from the schema.
 // plugins/config.ts
 import fp from 'fastify-plugin';
 
-import { loadConfig } from '../config.ts';
-import type { Config } from '../config.types.ts';
+import { loadConfig, type Config } from '../config.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -230,14 +211,14 @@ reads the environment. The app maps its config onto those options in a plugin.
 - A default `MONGODB_URL` of `mongodb://localhost`.
 - Logging `process.env` or the config object.
 - `.env` copied into an image, or a secret baked in with `ARG` or `ENV`.
-- A schema written without the `schema` wrapper, which loses its first upper-case key silently.
+- An environment schema on `@alexify/metaschema` older than 3.4.1, which drops its first variable.
 - `process.env` assigned in a test.
 
 ## Checklist
 
 - [ ] One schema in `src/config.ts`, parsed once at boot with `coerce` and `unknown: 'strip'`.
 - [ ] The process exits before listening when a value is missing or invalid, with every issue listed.
-- [ ] `src/config.types.ts` is generated from the schema and checked in CI.
+- [ ] `Config` is `InferOutput` of the definition, on `@alexify/metaschema` 3.4.1 or later.
 - [ ] No `process.env` outside the composition root, no `NODE_ENV` in code.
 - [ ] Dependencies and secrets have no defaults; tuning values do.
 - [ ] `.env.example` lists every key; `.env` is ignored by git and Docker.
