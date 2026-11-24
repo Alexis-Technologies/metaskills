@@ -76,6 +76,61 @@ export default fp(
 A plugin whose dependency is missing fails at boot (`The dependency 'x' of plugin 'y' is not
 registered`), not on the first request.
 
+## Status from the response schema
+
+Fastify answers 200 unless the handler sets a code, and a `response` schema does not change that.
+Without the code no schema matches 200, so the body leaves unfiltered, extra fields included. This
+plugin sets the status once, from the contract: a route that declares exactly one 2xx code answers
+with it.
+
+```ts
+// plugins/status-from-schema.ts
+import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import fp from 'fastify-plugin';
+
+const SUCCESS_CODE = /^2\d\d$/;
+
+// One declared 2xx code becomes the status. Several leave the choice to the handler.
+const successCodeOf = (response: object): number => {
+  let found = '';
+  for (const code of Object.keys(response)) {
+    if (!SUCCESS_CODE.test(code)) continue;
+    if (found !== '') return 0;
+    found = code;
+  }
+  return found === '' ? 0 : Number(found);
+};
+
+export default fp(
+  async (fastify) => {
+    fastify.addHook('onRoute', (routeOptions) => {
+      const response = routeOptions.schema?.response;
+      if (!response) return;
+      const status = successCodeOf(response);
+      if (status === 0 || status === 200) return;
+      const setStatus = async (request: FastifyRequest, reply: FastifyReply) => {
+        reply.code(status);
+      };
+      const handlers: preHandlerHookHandler[] = [];
+      routeOptions.preHandler = handlers.concat(routeOptions.preHandler ?? [], setStatus);
+    });
+  },
+  { name: 'status-from-schema' },
+);
+```
+
+- The status comes from the schema, not from the method: a POST that signs in or cancels declares 200.
+- It runs last among `preHandler` hooks, so a guard that answers 401 keeps its code.
+- `reply.code()` in the handler still wins, and a route with several 2xx codes keeps the default 200.
+- **Register it before the routes.** `onRoute` sees only routes added after it. A shared plugin in
+  `plugins/` loads before `routes/`.
+- **The error handler must always call `reply.code()`.** Otherwise an error body goes out with 201
+  and the 201 schema: a loose schema let `201 {"error":{"code":"EINTERNAL"}}` through.
+
+Checked on Fastify 5.8.5 and Node.js 24 with `tsc` 7 in strict mode: 201, 202 and 204 as declared, 200
+for a 200 schema and for several 2xx codes, 401 from a guard, 400 on invalid input, 500 or the
+error's 4xx when the handler throws, and 201 in an encapsulated route plugin.
+
 ## Authentication decorator
 
 The decorator is a hook function, attached per route.
@@ -129,11 +184,9 @@ const orderRoutes = async (fastify: FastifyInstance) => {
 
   const schema = { body: CreateOrderBody, response: { 201: OrderReply } };
 
-  fastify.post('/orders', { schema, bodyLimit: 16_384 }, async (request, reply) => {
-    const order = await fastify.orders.create(request.user!.id, request.body);
-    reply.code(201);
-    return order;
-  });
+  fastify.post('/orders', { schema, bodyLimit: 16_384 }, async (request) =>
+    fastify.orders.create(request.user!.id, request.body),
+  );
 
   fastify.get('/orders/:id', async (request) => {
     const { id } = request.params as { id: string };

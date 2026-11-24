@@ -269,6 +269,8 @@ Record shape, retention, telemetry cost, and release safety nets:
 
 ## Anti-patterns
 
+- An error handler that sends without `reply.code()`: the status of the route leaks into the
+  error, a 201 when it is set from the response schema.
 - `catch {}` or `catch { return null; }` around a bug: the state stays broken.
   Catch what you can handle, by `code`, and rethrow the rest.
 - Logging and rethrowing at every layer: the same stack N times.

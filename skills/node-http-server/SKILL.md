@@ -92,9 +92,9 @@ export default fp(
   it reaches a route is owned by `js-contracts-schemas`. Never hand-write a route schema as a source.
 - Declare `response` schemas per status: serialization gets faster, and fields outside the schema
   never leave the server.
-- A `response` schema does not set the status. Without `reply.code(201)` the answer is 200, no
-  schema matches it, and the body leaves unfiltered, extra fields included. Set the code and `return`
-  the value; after `reply.send()`, `return reply`. Answer "no content" with `reply.code(204).send()`.
+- A `response` schema does not set the status: without a code the answer is 200 and leaves
+  unfiltered. Register `status-from-schema` before the routes (`references/fastify.md`): one declared
+  2xx code becomes the status, and `reply.code()` still wins. After `reply.send()`, `return reply`.
 - Return a `Readable` to stream: Fastify pipes it and handles its errors. `reply.hijack()` hands you
   the raw response, and hooks and error handling no longer apply.
 
@@ -107,11 +107,9 @@ const orderRoutes = async (fastify: FastifyInstance) => {
   const guarded = { preHandler: [fastify.authenticate] };
   const schema = { body: CreateOrderBody, response: { 201: OrderReply } };
 
-  fastify.post('/orders', { ...guarded, schema, bodyLimit: 16_384 }, async (request, reply) => {
-    const order = await fastify.orders.create(request.user!.id, request.body);
-    reply.code(201);
-    return order;
-  });
+  fastify.post('/orders', { ...guarded, schema, bodyLimit: 16_384 }, async (request) =>
+    fastify.orders.create(request.user!.id, request.body),
+  );
 };
 
 export default orderRoutes;
