@@ -14,7 +14,7 @@ const TIMEOUT_MS = 600_000;
 const EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit'];
 
 const createProject = () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'metaskills-eval-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'alexiskills-eval-'));
   const manifest = JSON.stringify({ name: 'eval-project', private: true });
   fs.writeFileSync(path.join(root, 'package.json'), manifest);
   ensureSkillLinks('.claude/skills', { root, source: SKILLS_DIR });

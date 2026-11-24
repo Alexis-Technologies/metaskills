@@ -3,7 +3,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const budgets = require('../../scripts/size-budgets.json');
-const { measureAll, measureSkill, sizeProblems } = require('../../scripts/size.js');
+const { measureAll, measureSkill, sizeProblems, totalProblems } = require('../../scripts/size.js');
 
 const SKILLS_DIR = path.resolve(__dirname, '../../skills');
 const LIMITS = { skillChars: 100, skillLines: 5, descriptionChars: 10 };
@@ -37,8 +37,17 @@ test('sizeProblems names each budget a skill is over', () => {
   assert.match(problems[2], /alpha: description 11/);
 });
 
+test('totalProblems passes descriptions at the total budget and reports them over it', () => {
+  const rows = [{ descriptionChars: 6 }, { descriptionChars: 4 }];
+  assert.deepStrictEqual(totalProblems(rows, { descriptionsTotalChars: 10 }), []);
+  const problems = totalProblems(rows, { descriptionsTotalChars: 9 });
+  assert.strictEqual(problems.length, 1);
+  assert.match(problems[0], /descriptions: 10 chars in total, budget 9/);
+});
+
 test('every skill fits the budgets without exceptions', () => {
   const rows = measureAll(SKILLS_DIR);
   assert.ok(rows.length > 0);
   for (const row of rows) assert.deepStrictEqual(sizeProblems(row, budgets), []);
+  assert.deepStrictEqual(totalProblems(rows, budgets), []);
 });

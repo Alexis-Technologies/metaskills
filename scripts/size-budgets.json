@@ -1,5 +1,6 @@
 {
   "skillChars": 17500,
   "skillLines": 500,
-  "descriptionChars": 1024
+  "descriptionChars": 200,
+  "descriptionsTotalChars": 5100
 }

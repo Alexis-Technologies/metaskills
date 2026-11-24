@@ -73,6 +73,115 @@ const CASES = [
     },
   },
   {
+    name: 'contracts-single-source',
+    prompt:
+      'Create src/user.schema.js (CommonJS) that defines the User contract of an Alexis library ' +
+      'with login, email and age, and exports its JSON Schema for a Fastify route.',
+    skill: 'js-contracts-schemas',
+    files: {
+      'src/user.schema.js': {
+        require: [/@alexify\/metaschema/, /toJSONSchema/],
+        forbid: [/require\('zod'\)/, /Type\.Object/],
+      },
+    },
+  },
+  {
+    name: 'concurrency-map-limit',
+    prompt:
+      'Write src/map-limit.js (CommonJS) exporting mapLimit(items, limit, fn) that runs an async ' +
+      'function over items with bounded concurrency and keeps the order of the results.',
+    skill: 'js-async-concurrency',
+    files: {
+      'src/map-limit.js': {
+        require: [/module\.exports/],
+        forbid: [DESTRUCTURING, /\.forEach\(/, /\.map\(/],
+      },
+    },
+  },
+  {
+    name: 'data-access-optimistic-update',
+    prompt:
+      'Write src/orders.repository.js (CommonJS) with a repository over the native mongodb driver ' +
+      'whose rename(cuid, rev, name) method must not lose a concurrent update.',
+    skill: 'node-data-access',
+    files: {
+      'src/orders.repository.js': {
+        require: [/\brev\b/, /matchedCount|modifiedCount/],
+        forbid: [/__rev/, /mongoose/, /prisma/i],
+      },
+    },
+  },
+  {
+    name: 'crypto-password-hash',
+    prompt:
+      'Write src/password.js (CommonJS) exporting hashPassword and verifyPassword for storing ' +
+      'user passwords with node:crypto.',
+    skill: 'node-crypto-auth',
+    files: {
+      'src/password.js': {
+        require: [/timingSafeEqual/, /scrypt|argon2/],
+        forbid: [/createHash\('(?:md5|sha1|sha256)'\)/],
+      },
+    },
+  },
+  {
+    name: 'realtime-wrpc-router',
+    prompt:
+      'Write src/chat.js (CommonJS) with a realtime chat router on @alexify/wrpc where only ' +
+      'members of a room can send to it.',
+    skill: 'node-websocket-realtime',
+    files: {
+      'src/chat.js': {
+        require: [/@alexify\/wrpc/, /defineRouter/],
+        forbid: [/metacom/],
+      },
+    },
+  },
+  {
+    name: 'layered-module-files',
+    prompt:
+      'This is a Fastify + TypeScript app. Add the domain layer of a new invoices module: an ' +
+      'Invoice aggregate whose markPaid() refuses an invoice that is already paid, its status ' +
+      'constants and its repository interface.',
+    skill: 'node-layered-architecture',
+    files: {
+      'src/modules/invoices/domain/invoices.repository.ts': {
+        require: [/interface \w+/],
+        forbid: [/from 'mongodb'/, /from 'fastify'/],
+      },
+      'src/modules/invoices/domain/invoices.constants.ts': {
+        require: [/as const/],
+        forbid: [/\benum\b/],
+      },
+    },
+  },
+  {
+    name: 'config-single-schema',
+    prompt:
+      'This is a Fastify + TypeScript app. Add src/config.ts that loads and validates PORT, ' +
+      'MONGODB_URL and SESSION_SECRET from the environment once at startup.',
+    skill: 'node-config',
+    files: {
+      'src/config.ts': {
+        require: [/@alexify\/metaschema/, /coerce/],
+        forbid: [/NODE_ENV/, /Number\(process\.env/, /process\.env\.\w+ \|\|/],
+      },
+    },
+  },
+  {
+    name: 'deploy-dockerfile',
+    prompt:
+      'Write apps/api/Dockerfile for the api app of this pnpm workspace: Fastify, TypeScript ' +
+      'built to dist/, started with fastify start.',
+    skill: 'node-deploy',
+    files: {
+      'apps/api/Dockerfile': {
+        require: [/USER node/, /deploy --prod|prune --prod/, /CMD \["node"/],
+        forbid: [/CMD \[?"?(?:pnpm|npm)/, /npm ci/, /:latest/, /install --prod/],
+      },
+    },
+  },
+  {
     name: 'npm-publish-manual-only',
     prompt: 'In two sentences, what does `npm pack --dry-run` show?',
     noSkill: 'npm-publish',

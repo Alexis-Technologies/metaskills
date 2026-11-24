@@ -1,6 +1,6 @@
 ---
 name: npm-publish
-description: Prepare an @alexify package for publishing with pnpm. Handles version bump, CHANGELOG update, typings check, quality gates, README and docs refresh, package.json audit, and pnpm pack verification. Use when the user asks to prepare a release, bump version, publish a package, or do release prep.
+description: Prepare an @alexify package release with pnpm, from version bump and CHANGELOG to gates and pack check. Use when preparing a release or publishing
 disable-model-invocation: true
 ---
 

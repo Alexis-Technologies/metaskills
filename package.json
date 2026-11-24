@@ -9,7 +9,7 @@
     "type": "git",
     "url": "git+https://github.com/Alexis-Technologies/metaskills.git"
   },
-  "homepage": "https://github.com/Alexis-Technologies/metaskills#readme",
+  "homepage": "https://alexiskills.vercel.app",
   "bugs": {
     "url": "https://github.com/Alexis-Technologies/metaskills/issues"
   },
@@ -18,7 +18,7 @@
   },
   "packageManager": "pnpm@10.34.5",
   "bin": {
-    "metaskills": "./bin/metaskills.js"
+    "alexiskills": "./bin/alexiskills.js"
   },
   "exports": {
     "./package.json": "./package.json"

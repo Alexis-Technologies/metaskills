@@ -1,17 +1,18 @@
 ---
 name: js-data-structures
-description: Choose and use native JavaScript collections for Big-O, readability, semantics, naming, stability, or testability. Use when working with Map, Object, Set, Array, WeakMap, WeakSet, TypedArray, or deciding among built-in collections. For custom queues, lists, heaps, tries, and related structures, use the data-structures skill.
+description: Pick native JS collections (Map, Object, Set, Array, WeakMap, TypedArray) by Big-O and meaning. Use when choosing a built-in collection
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-data-structures): one description key in the
-     frontmatter (upstream has two), and the array-method rule of js-conventions. -->
+     frontmatter (upstream has two), the array-method and iteration rules of js-conventions, and
+     the examples without the fragments of data-structures classes spliced into them upstream. -->
 
 # Native Data Structures (JavaScript)
 
 ## Choosing a native collection
 
 - Fixed schema / DTO / JSON: use `Object` (avoid `Map`, no `JSON.stringify`)
-- Dynamic string-to-value dict: use `Map` or `Object.create(null)` (avoid plain `{}` if keys are user input)
+- Dynamic string-to-value dict: use `Map`, or `Object.create(null)` in hot library code (avoid plain `{}` if keys are user input)
 - Non-string keys, insertion order, `.size`: use `Map` (avoid `Object`)
 - Ordered list, index access, transform: use `Array` (avoid `Set`, no indexes)
 - Unique values, fast membership: use `Set` (avoid `Array.includes` on large/dynamic sets)
@@ -19,6 +20,7 @@ description: Choose and use native JavaScript collections for Big-O, readability
 - Track object presence without retaining: use `WeakSet` (avoid `Set`, leaks)
 - Numeric / binary data, I/O, crypto: use TypedArray / `ArrayBuffer` (avoid `number[]` for hot binary work)
 - Hot queue / deque / stack ends: do not rely on `Array.shift`/`unshift` — use a custom ring or linked structure
+
 ## Choosing a collection
 
 Pick the smallest structure that matches how the values relate:
@@ -72,7 +74,7 @@ Choose a structure for the property you need to control — not only for speed.
 
 - Let the type state the intent: `Set` = unique membership; `Map` = keyed registry; `Array` = ordered sequence; plain `Object` = record/DTO
 - Prefer a named collection over encoding the same idea in ad-hoc flags, parallel arrays, or stringly keys
-- Outside library code (`src/`), use array methods (`.map`, `.filter`, `.reduce`) when they match the transform; in `src/` and wherever control flow or performance matters, use explicit loops
+- In `src/` of libraries and apps, use explicit loops and no array iteration methods (`.map`, `.filter`, `.reduce`), as the `js-conventions` skill says; tests and scripts may use them where they state the transform
 - Avoid over-abstracting: a small static `Array` allowlist is clearer than a `Set` used once
 
 **Naming:**
@@ -122,7 +124,7 @@ dict[key] = value;
 - Prefer fixed access (`obj.x`) over dynamic keys (`obj[key]`) when the schema is known
 - Do not `delete` fields; set `null` for refs, `undefined` for primitives
 - Objects that share a property should share the full shape — avoid polymorphic property reads
-- `for...in` is slow on hot paths; prefer `Object.keys` / `Object.entries`
+- Walk a plain data object with `for...in` in domain code; in library and hot code, take `Object.keys(obj)` and use an index loop. Never `Object.entries`
 
 ## Array
 
@@ -136,25 +138,6 @@ const last = ids.pop();
 const ALLOWED = ['read', 'write'];
 if (ALLOWED.includes(role)) {
   /* ... */
-  pop() {
-    if (!this.#head) return null;
-    const { data } = this.#head;
-    this.#head = this.#head.next;
-    this.#length--;
-    return data;
-  }
-
-  get length() {
-    return this.#length;
-  }
-
-  *[Symbol.iterator]() {
-    let node = this.#head;
-    while (node) {
-      yield node.data;
-      node = node.next;
-    }
-  }
 }
 ```
 
@@ -164,7 +147,7 @@ if (ALLOWED.includes(role)) {
 - Prefer SMI-friendly integers (31-bit signed) for indexes/counters (`PACKED_SMI_ELEMENTS`); a float, `NaN`, or hole promotes the whole array
 - Avoid holey arrays (`new Array(n)`, deletes, skips); build with `push` or fill sequentially
 - Avoid `shift()` / `unshift()` in hot paths; use a queue or index cursors
-- Prefer `for` / `for...of` in hot loops; avoid array destructuring in hot assignments
+- Prefer `for` / `for...of` in hot loops; no array destructuring anywhere (read by index)
 
 ## Map
 
@@ -175,20 +158,11 @@ const sessions = new Map();
 sessions.set(socket, { userId: 42 });
 sessions.set('fallback', null);
 
-for (const [key, value] of sessions) {
-  // insertion order
-class Queue {
-  #buffer = [];
-  enqueue(item) {
-    this.#buffer.push(item);
-  }
-  dequeue() {
-    if (this.#buffer.length === 0) return null;
-    return this.#buffer.shift();
-  }
-  get length() {
-    return this.#buffer.length;
-  }
+// insertion order; read entry[0] / entry[1] only when both are needed
+for (const entry of sessions) {
+  const key = entry[0];
+  const value = entry[1];
+  /* ... */
 }
 sessions.delete(socket);
 console.log(sessions.size);
@@ -210,26 +184,7 @@ const seen = new Set();
 for (const id of incoming) {
   if (seen.has(id)) continue;
   seen.add(id);
-  process(id);
-class Node {
-  constructor(size) {
-    this.buffer = new Array(size).fill(null);
-    this.readIdx = 0;
-    this.writeIdx = 0;
-    this.next = null;
-  }
-  enqueue(item) {
-    if (this.writeIdx >= this.buffer.length) return false;
-    this.buffer[this.writeIdx++] = item;
-    return true;
-  }
-  dequeue() {
-    if (this.readIdx >= this.writeIdx) return null;
-    const item = this.buffer[this.readIdx];
-    this.buffer[this.readIdx] = null;
-    this.readIdx++;
-    return item;
-  }
+  handle(id);
 }
 
 const unique = [...new Set(items)];
@@ -253,41 +208,6 @@ const attach = (obj, data) => {
   meta.set(obj, data);
   tracked.add(obj);
 };
-class CircularBuffer {
-  #buffer = null;
-  #size = 0;
-  #count = 0;
-  #readIdx = 0;
-  #writeIdx = 0;
-
-  constructor(size) {
-    this.#size = size;
-    this.#buffer = new Array(size).fill(null);
-  }
-
-  write(item) {
-    if (this.#count === this.#size) return false;
-    this.#buffer[this.#writeIdx] = item;
-    this.#writeIdx++;
-    if (this.#writeIdx === this.#size) this.#writeIdx = 0;
-    this.#count++;
-    return true;
-  }
-
-  read() {
-    if (this.#count === 0) return null;
-    const item = this.#buffer[this.#readIdx];
-    this.#buffer[this.#readIdx] = null;
-    this.#readIdx++;
-    if (this.#readIdx === this.#size) this.#readIdx = 0;
-    this.#count--;
-    return item;
-  }
-
-  get length() {
-    return this.#count;
-  }
-}
 ```
 
 **Hints:**
@@ -315,24 +235,6 @@ const view = new DataView(buf);
 view.setUint32(0, 0xdeadbeef, true);
 bytes[4] = 0xff;
 const frame = bytes.subarray(0, 8); // shared memory; `slice` copies
-class BST {
-  constructor(data) {
-    this.data = data;
-    this.left = null;
-    this.right = null;
-  }
-
-  insert(data) {
-    if (data < this.data) {
-      if (this.left) this.left.insert(data);
-      else this.left = new BST(data);
-    } else if (this.right) {
-      this.right.insert(data);
-    } else {
-      this.right = new BST(data);
-    }
-  }
-}
 ```
 
 **Hints:**
@@ -347,4 +249,4 @@ class BST {
 - Keep hot code monomorphic: stable argument count, types, return types, and object shapes
 - Prefer SMI integers for indexes/sizes; do not mix ints and floats in one variable
 - Reduce GC pressure: reuse arrays, objects, and buffers when safe
-- Move reusable callbacks outside loops; keep `try/catch` and spread out of hot loops
+- Move reusable callbacks outside loops; keep spread, rest and per-iteration closures out of hot loops. `try` / `catch` does not deoptimize: place it where the error handling belongs

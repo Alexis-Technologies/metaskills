@@ -1,6 +1,6 @@
 ---
 name: js-conventions
-description: Alexis JavaScript and TypeScript conventions (Metarhia-derived, linted by oxlint and formatted by oxfmt), project lint setup, formatting, naming, object shape and hidden class rules, named intermediate variables, split-then-compose, contracts, module and export order, ternaries, lookup tables, dynamic dispatch, iteration, async/await, cognitive complexity, performance, and benchmarking. Apply automatically whenever writing, editing, refactoring, simplifying, optimizing, formatting, cleaning up, or reviewing .js, .mjs, .cjs, .ts, or .d.ts files, or when the user asks about code style or linting
+description: Alexis JS and TS code style for naming, modules, iteration, async, performance. Apply when writing or reviewing .js, .mjs, .cjs, .ts or .d.ts files
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-conventions) for the Alexis toolchain:
@@ -28,12 +28,24 @@ runtime.
 - Run `pnpm format` before fixing remaining issues by hand. Suppress a rule only for an intentional
   construct, with a targeted `// oxlint-disable-next-line <rule>`
 - Preserve the existing module system, source and declaration file types, and
-  package layout unless the task asks to change them
+  package layout unless the task asks to change them. Before adding a file, read one of its kind
+  nearby and repeat its shape and names
 - Resolve runtime packages from the registry (or the project's declared source of truth), not from sibling `file:` links in a gitignored lockfile that other machines will not have
+
+## Project profile
+
+Read `package.json`, `.oxlintrc.json`, `.oxfmtrc.json`, and `.editorconfig` first: the project's configuration wins over the defaults here.
+
+|              | Library (`@alexify/*`)        | App                                  |
+| ------------ | ----------------------------- | ------------------------------------ |
+| Modules      | CommonJS, handwritten `.d.ts` | ESM, TypeScript, NodeNext            |
+| Tests        | `node:test`, c8               | Vitest (AAA, `should` titles, fakes) |
+| Runtime deps | None                          | Allowed                              |
+| Architecture | Flat `src/`                   | Onion + DDD                          |
 
 ## Formatting
 
-For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within 100 characters except URLs. Let oxfmt and `.editorconfig` handle spacing, braces, and indentation (2 spaces, LF).
+For writing new code use single quotes, semicolons, trailing commas in multiline arrays, objects, and parameters, and one blank line between semantic blocks. Keep lines within the project's `printWidth` (100 or 120) except URLs. Let oxfmt and `.editorconfig` handle spacing and indentation (2 spaces, LF). Braces follow oxlint `curly: multi-line`: none for a body on the line of its `if` or loop, braces once it wraps.
 
 ## Naming
 
@@ -71,9 +83,10 @@ Order in the file and in the export list:
 4. classes
 5. exports (in the order they appear in the file)
 
-- Types go in a sibling `.d.ts`. Never JSDoc
+- Library types go in a sibling `.d.ts`. JSDoc only when very short and to the point
 - Alexis libraries are CommonJS: `require` and `module.exports`, no `import` / `export` in `.js` sources
-- Do not add `'use strict'`
+- In TypeScript use `as const` objects, not `enum`
+- Do not add `'use strict'` unless the project already uses it
 - Node builtins always use the `node:` prefix: `require('node:fs')`, not `require('fs')`
 - Packages: bare specifier, no extension
 - Relative paths always include the extension (`.js` / `.cjs` / `.mjs`); prefer `./dir/moduleName.js` over `./dir`
@@ -111,16 +124,9 @@ module.exports = { MAX_WIDTH, formatValue, Session };
 
 ```js
 // BAD
-const renderOptions = {
-  width: wrapWidth,
-  outputs: outputs,
-  tick: tick
-};
-```
-
-```js
+const renderOptions = { width: wrapWidth, outputs: outputs, tick: tick };
 // GOOD
-const renderOptions = { width, outputs, tick, hover };
+const renderOptions = { width, outputs, tick };
 ```
 
 ## Variables and empty values
@@ -193,7 +199,7 @@ Choose iteration by data type, code layer, and whether the path is hot:
   - Library and system code (runtimes, parsers, protocols, I/O, hot paths): C-like `for (let i = 0; i < list.length; i++)` over arrays. Dynamic-key collections are `Map`s: `for...of` over `map.values()` or `map.keys()`; `for (const entry of map)` reading `entry[0]` / `entry[1]` only when both are needed. A plain object the code receives (options, headers) is walked with `const keys = Object.keys(obj)` and an index loop
   - Domain and application code: `for...of` over arrays and `Map`, `for...in` over plain data objects, for readability; `Object.values` outside hot paths
   - Both: `for...of` for `Set`, generators, streams, and code points of a string. Never `Object.entries`; never `Object.values` in hot or library code
-- In library code (`src/`) use no array iteration methods (`.map`, `.filter`, `.some`, `.every`, `.find`, `.findIndex`, `.findLast`, `.reduce`, `.flatMap`, `.forEach`), cold paths included. Compute everything a collection gives in one pass with an early exit; never chain passes (`.map().join()`, `Array.from().map()`), and do not build an array only to iterate it
+- In `src/` of libraries and apps use no array iteration methods (`.map`, `.filter`, `.some`, `.every`, `.find`, `.findIndex`, `.findLast`, `.reduce`, `.flatMap`, `.forEach`), cold paths included. Compute everything a collection gives in one pass with an early exit; never chain passes (`.map().join()`, `Array.from().map()`), and do not build an array only to iterate it
 - Tests, scripts, and benchmarks may use array iteration methods where they state the semantic. A `.forEach` callback that reads or writes outer variables (accumulators, flags, counters) is a loop instead
 - Spread an iterable only when it really is one (`[...set]`, `[...string]` for code points) and `Array.from` does not read better
 - Keep escaping allocations out of hot loops: spread, rest, closures created per iteration, and arrays or objects that outlive the call; move reusable callbacks outside loops. Small result objects that do not leave an inlined function (`{ text, end }` from a span reader) are removed by escape analysis and are fine. `try` / `catch` does not deoptimize: place it where the error handling belongs
@@ -237,18 +243,19 @@ for (let i = 0; i < names.length; i++) {
   enumeration cache. This is right for hash-table objects but wrong for
   records. Never delete a record field or build a record or prototype with
   `Object.create(null)`
-- Prototypes are set up once at module load and never changed afterwards: no methods added or deleted at runtime (deleting counts as a change), never touch `Object.prototype` or other built-in prototypes. Each change invalidates every cached lookup below it
+- Prototypes are set up once at module load and never changed afterwards: no methods added or deleted at runtime (deleting counts as a change), never touch `Object.prototype` or other built-in prototypes. Each change invalidates every cached lookup below it. Metaprogramming that generates a class or prototype runs at module load too
 
 Library/system code and hot paths also follow [performance.md](performance.md): V8 inline caches, element kinds, numeric fields, module state, `JSON.stringify` fast path, and how to measure.
 
 ## Async
 
-- Native promises with `async` / `await`; no promise libraries and no
-  hand-written `.then` chains. Awaited call sites appear in async stack traces
+- Native promises, `async` / `await` by default; no promise libraries. `.then` is
+  fine where it reads better (a bridge, a short chain, fire-and-forget with
+  `.catch`). Awaited call sites appear in async stack traces
 - `await` only real promises in hot paths; awaiting a plain value still allocates a wrapper promise
 
 ## Docs and comments
 
 - Names and control flow are the documentation. Comment only what identifiers cannot say: why (gotcha, historical bug, "do not simplify"), protocol and magic numbers, empty-`catch` intent (`// ignore`)
-- Remove comments that restate the next line, noisy section banners, and `@param` / `@returns` / `@typedef`. Never add comments to mark a style edit
+- Remove comments that restate the next line, noisy section banners, and JSDoc that repeats names or types. A JSDoc block is one or two lines on what the signature cannot say. Never add comments to mark a style edit
 - User-facing help goes in markdown tables (or other structured docs) next to the feature, not in long string literals. Keep it in sync with the real dispatch tables and special cases. Drop redundant aliases in docs and code unless the product intentionally keeps them

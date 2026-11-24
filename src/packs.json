@@ -1,0 +1,41 @@
+{
+  "core": [
+    "alexis-libraries",
+    "error-handling",
+    "js-ai-assisted-development",
+    "js-async-patterns",
+    "js-contracts-schemas",
+    "js-conventions",
+    "node-config",
+    "node-modules-packages",
+    "node-tooling-testing"
+  ],
+  "design": [
+    "js-gof",
+    "js-multiparadigm",
+    "js-solid-grasp",
+    "node-architecture-styles",
+    "node-layered-architecture"
+  ],
+  "library": ["data-structures", "js-data-structures", "metautil-data-structures", "npm-publish"],
+  "runtime": [
+    "js-async-concurrency",
+    "node-async-context",
+    "node-event-loop",
+    "node-events",
+    "node-fs-buffers",
+    "node-multithreading",
+    "node-performance-profiling",
+    "node-streams"
+  ],
+  "backend": [
+    "node-data-access",
+    "node-deploy",
+    "node-graceful-shutdown",
+    "node-http-server",
+    "node-observability",
+    "node-scaling-highload"
+  ],
+  "security": ["node-access-control", "node-crypto-auth", "node-security"],
+  "realtime": ["js-local-first-sync", "node-websocket-realtime"]
+}

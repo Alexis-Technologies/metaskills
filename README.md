@@ -1,4 +1,4 @@
-# metaskills
+# alexiskills
 
 [![CI](https://github.com/Alexis-Technologies/metaskills/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexis-Technologies/metaskills/actions/workflows/ci.yml)
 [![license](https://img.shields.io/github/license/Alexis-Technologies/metaskills)](./LICENSE)
@@ -7,51 +7,58 @@
 Windsurf, VS Code and Gemini: code style, data structures, design patterns, error handling and
 release preparation, linked into a project by one command.
 
-> **Status: not published yet.** `@alexify/metaskills` is a mechanical fork of
-> [metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, adapted to the Alexis
-> toolchain. Until it is on npm, install it from a tarball.
+📖 Documentation: [alexiskills.vercel.app](https://alexiskills.vercel.app)
+
+alexiskills (`@alexify/metaskills` on npm) is a mechanical fork of
+[metarhia/metaskills](https://github.com/metarhia/metaskills) v1.0.6, adapted to the Alexis
+toolchain.
 
 ## Installation
 
 ```bash
-git clone https://github.com/Alexis-Technologies/metaskills.git
-cd metaskills
-pnpm install
-pnpm pack
+pnpm add -D @alexify/metaskills
+pnpm exec alexiskills claude
 ```
 
-Then, in your project:
+To relink on every install, so new skills of your packs appear after `pnpm update`, put the command
+in `prepare`: `"prepare": "alexiskills claude --pack backend,security"`.
 
-```bash
-pnpm add -D /path/to/metaskills/alexify-metaskills-1.0.0.tgz
-pnpm exec metaskills claude
-```
+The command is `alexiskills`, so it cannot clash with the `metaskills` command of
+`metarhia/metaskills`. It symlinks the skills directory of the IDE to the installed package and adds
+the link to `.gitignore` and `.npmignore`. Your own skills in that directory stay, and each package
+skill is linked next to them.
 
-The command symlinks the skills directory of the IDE to the installed package and adds the link to
-`.gitignore` and `.npmignore`. A directory that already holds your own skills is left unchanged.
-
-| IDE         | Command                  | Target directory    |
-| ----------- | ------------------------ | ------------------- |
-| Autodetect  | `metaskills`             | Detected, or a menu |
-| Cursor      | `metaskills cursor`      | `.cursor/skills`    |
-| Claude Code | `metaskills claude`      | `.claude/skills`    |
-| Windsurf    | `metaskills windsurf`    | `.windsurf/skills`  |
-| VS Code     | `metaskills vscode`      | `.github/skills`    |
-| Gemini      | `metaskills gemini`      | `.gemini/skills`    |
-| Antigravity | `metaskills antigravity` | `.agents/skills`    |
-| All         | `metaskills all`         | All of the above    |
+| IDE         | Command                   | Target directory    |
+| ----------- | ------------------------- | ------------------- |
+| Autodetect  | `alexiskills`             | Detected, or a menu |
+| Cursor      | `alexiskills cursor`      | `.cursor/skills`    |
+| Claude Code | `alexiskills claude`      | `.claude/skills`    |
+| Windsurf    | `alexiskills windsurf`    | `.windsurf/skills`  |
+| VS Code     | `alexiskills vscode`      | `.github/skills`    |
+| Gemini      | `alexiskills gemini`      | `.gemini/skills`    |
+| Antigravity | `alexiskills antigravity` | `.agents/skills`    |
+| All         | `alexiskills all`         | All of the above    |
 
 ## Skills
 
-| Skill                      | Covers                                                     |
-| -------------------------- | ---------------------------------------------------------- |
-| `js-conventions`           | Alexis JavaScript and TypeScript style, naming and modules |
-| `js-data-structures`       | Choosing native JavaScript collections                     |
-| `data-structures`          | Custom queues, lists, tries, heaps, graphs and CRDTs       |
-| `metautil-data-structures` | The data structures of the `metautil` package              |
-| `js-gof`                   | Creational and structural design patterns                  |
-| `error-handling`           | Error handling and recovery in Node.js                     |
-| `npm-publish`              | Preparing an `@alexify` package for release                |
+37 skills in seven packs. Without an option the command links all of them. A project that needs less
+links `core` and the packs it names, which keeps the skill descriptions within an agent's context:
+
+```bash
+pnpm exec alexiskills claude --pack backend,security
+```
+
+| Pack       | Skills | Covers                                                                |
+| ---------- | ------ | --------------------------------------------------------------------- |
+| `core`     | 9      | Code style, errors, async, schemas, config, modules, tooling, `@alexify/*` |
+| `design`   | 5      | Patterns, SOLID and GRASP, paradigms, Onion + DDD, architecture styles |
+| `library`  | 4      | Data structures and preparing an `@alexify` package for release       |
+| `runtime`  | 8      | Event loop, concurrency, events, streams, files, threads, profiling   |
+| `backend`  | 6      | Fastify and HTTP, data access, shutdown, scaling, deploy, observability |
+| `security` | 3      | Application security, crypto and authentication, access control       |
+| `realtime` | 2      | WebSocket on wrpc, local-first sync                                   |
+
+The [catalog](https://alexiskills.vercel.app/reference/skills) lists every skill.
 
 ## Development
 

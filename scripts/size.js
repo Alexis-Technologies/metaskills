@@ -1,7 +1,8 @@
 /**
  * What the skills cost in an agent's context. A description is always listed, a SKILL.md is read
  * when the skill is used. Claude Code re-attaches only the first 5000 tokens of a skill after
- * compaction, about 17500 characters of Markdown with code, hence the budget.
+ * compaction, about 17500 characters of Markdown with code, hence the budget. All descriptions
+ * share about 1% of the context window and the ones over it are dropped, hence the total.
  *
  * Usage: pnpm size [--check]   (`--check` exits 1 when a skill is over a budget)
  */
@@ -37,6 +38,13 @@ const sizeProblems = (row, limits) => {
   return problems;
 };
 
+const totalProblems = (rows, limits) => {
+  let total = 0;
+  for (let i = 0; i < rows.length; i++) total += rows[i].descriptionChars;
+  if (total <= limits.descriptionsTotalChars) return [];
+  return [`descriptions: ${total} chars in total, budget ${limits.descriptionsTotalChars}`];
+};
+
 const measureAll = (source) => {
   const rows = [];
   const names = listSkills(source);
@@ -60,6 +68,7 @@ const main = () => {
     const size = `${row.chars} chars, ${row.lines} lines`;
     console.log(`${row.name.padEnd(28)} ${size}, description ${row.descriptionChars}`);
   }
+  problems.push(...totalProblems(rows, budgets));
   console.log(`\n${rows.length} skills, ${descriptions} characters of descriptions in total`);
   for (let i = 0; i < problems.length; i++) console.error(problems[i]);
   if (isCheck && problems.length > 0) process.exitCode = 1;
@@ -67,4 +76,4 @@ const main = () => {
 
 if (require.main === module) main();
 
-module.exports = { measureSkill, measureAll, sizeProblems };
+module.exports = { measureSkill, measureAll, sizeProblems, totalProblems };
