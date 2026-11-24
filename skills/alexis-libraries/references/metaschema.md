@@ -1,7 +1,7 @@
 # @alexify/metaschema
 
 The single source of truth for data shapes: validation, types, JSON Schema, OpenAPI, MongoDB
-validators and Standard Schema from one definition. Version 3.4.0, tag `v3.4.0`, Node.js 18+, no
+validators and Standard Schema from one definition. Version 3.4.1, tag `v3.4.1`, Node.js 18+, no
 runtime dependencies, browser build. How the definition reaches each consumer is the Validation
 chain of `js-contracts-schemas`. This page is the library itself.
 
@@ -91,11 +91,11 @@ The synchronous calls throw `ERR_ASYNC_VALIDATOR`.
 - Types are registered per process. Use `{ registry: 'isolated' }` for models that conflict.
 - A first key that names a type reads as a type definition, not a struct. Start the struct with
   `Struct: {}` or use `{ schema: ... }`.
-- **A first key that starts with a capital letter is read as a kind** and dropped from the fields,
-  silently. An environment schema (`{ LOG_LEVEL: ..., PORT: ... }`) loses its first variable from
-  validation and from JSON Schema. Wrap the fields in `{ schema: { ... } }`.
-- **`Infer` cannot type upper-case keys.** It gives a union of shapes, each missing one key. Generate
-  the type with `toTypeScript` and commit it (`node-config`).
+- **A kind is a kind name holding an object** since 3.4.1: a capital letter, then letters and
+  digits with at least one lowercase (`Entity: {}`, `Settings: { ... }`). Upper-case keys
+  (`DATABASE_URL`, `PORT`) are fields, for the runtime and for `Infer`. Up to 3.4.0 every
+  capitalized first key was a kind and was dropped silently, so an environment schema lost its first
+  variable, and `Infer` left capitalized keys out. Require `^3.4.1`.
 - `partial` drops defaults so a patch does not overwrite stored values. It is shallow unless
   `deep: true`.
 - `partial` is not the shape of a MongoDB `$set`. Use `checkUpdate`.

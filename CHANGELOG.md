@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`node-config` on metaschema 3.4.1.** An environment schema is a plain definition again, and
+  `Config` is `InferOutput` of it: 3.4.1 reads upper-case keys as fields, so the `schema` wrapper
+  and the generated `config.types.ts` are gone. `alexis-libraries` lists 3.4.1.
+- **When `prepare` runs.** The packs guide says that pnpm skips it when an install changes nothing,
+  so a change of packs needs `pnpm run prepare`.
+
 ## [1.0.0] - 2026-11-24
 
 The first version of alexiskills, a mechanical fork of
