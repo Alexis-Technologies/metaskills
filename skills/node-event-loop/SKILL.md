@@ -230,8 +230,8 @@ const processInSlices = async (items, fn, signal) => {
 ### Offload CPU work to a worker thread
 
 A one-file sample is in [references/node-overview.md](references/node-overview.md).
-Real services keep a fixed pool of workers instead of one per task; see
-`node-multithreading`.
+Real services keep a fixed pool of workers, not one per task
+(`node-multithreading`).
 
 ### Per-request deadline in Fastify
 
@@ -250,18 +250,18 @@ fastify.post('/report', async (request, reply) => {
   try {
     return await loadReport(request.body, signal);
   } catch (error) {
-    if (deadline.aborted) throw new DomainError('ETIMEOUT', { cause: error });
+    if (deadline.aborted) throw new DomainError('ALX_ERR_TIMEOUT', { cause: error });
     if (signal.aborted) return undefined; // the client left, nobody reads the answer
     throw error;
   }
 });
 ```
 
-Map `ETIMEOUT` to 504 in the error handler. The work stops only if the signal
-reaches it. **Do not use `handlerTimeout` or `request.signal` on a route with a
-body**: on Fastify 5.8 with Node.js 24 the end of the body closes the raw
-request, which aborts `request.signal` and cancels the timeout (a POST with a
-40 ms limit ran 224 ms and answered 200). For a MongoDB query prefer
+Map `ALX_ERR_TIMEOUT` to 504 in the error handler. The work stops only if the
+signal reaches it. **Do not use `handlerTimeout` or `request.signal` on a route
+with a body**: on Fastify 5.8 with Node.js 24 the end of the body closes the
+raw request, which aborts `request.signal` and cancels the timeout (a POST with
+a 40 ms limit ran 224 ms and answered 200). For a MongoDB query prefer
 `maxTimeMS`: the driver's `signal` is experimental and closes the socket.
 
 ### Sequential periodic job (no overlap)

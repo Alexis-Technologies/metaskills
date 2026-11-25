@@ -60,19 +60,19 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifySchemaCompiler } from 'fastify';
 import type { Schema, ValidationIssue } from '@alexify/metaschema';
 
-const TEXT_PARTS = ['querystring', 'params', 'headers'];
+const TEXT_PARTS = new Set(['querystring', 'params', 'headers']);
 
 const toError = (issues: readonly ValidationIssue[]) => {
   const error = new Error('Validation failed') as Error & Record<string, unknown>;
   error.statusCode = 400;
-  error.code = 'EVALIDATION';
+  error.code = 'ALX_ERR_VALIDATION';
   error.validation = issues;
   return error;
 };
 
 export const metaschemaCompiler: FastifySchemaCompiler<Schema> = ({ schema, httpPart }) => {
   const part = httpPart ?? '';
-  const coerce = TEXT_PARTS.includes(part);
+  const coerce = TEXT_PARTS.has(part);
   const unknown = part === 'headers' ? 'ignore' : 'reject';
   return (data) => {
     const { valid, value, issues } = schema.parse(data, { coerce, unknown });

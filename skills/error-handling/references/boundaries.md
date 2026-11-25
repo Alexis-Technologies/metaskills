@@ -8,19 +8,19 @@ and error ids.
 
 | Situation | Code (example) | HTTP | JSON-RPC 2.0 | gRPC |
 | --- | --- | --- | --- | --- |
-| Malformed input, schema violation | `EVALIDATION` | 400 (422 if the API uses it) | -32602 | INVALID_ARGUMENT |
-| Not authenticated, bad credentials | `EAUTH` | 401 | app code | UNAUTHENTICATED |
-| Authenticated but not allowed | `EFORBIDDEN` | 403, or 404 to hide existence | app code | PERMISSION_DENIED |
-| Entity absent | `ENOTFOUND` | 404 | app code | NOT_FOUND |
-| Duplicate, version conflict | `ECONFLICT` | 409 | app code | ALREADY_EXISTS / ABORTED |
-| Business rule (stock, limits, state) | `EPRECONDITION` | 409 or 422 | app code | FAILED_PRECONDITION |
-| Rate limit, quota | `ELIMIT` | 429 with `Retry-After` | app code | RESOURCE_EXHAUSTED |
-| Body too large | `ETOOLARGE` | 413 | app code | RESOURCE_EXHAUSTED |
-| Overloaded, shutting down, circuit open | `EUNAVAILABLE` | 503 with `Retry-After` | -32000..-32099 | UNAVAILABLE |
-| Dependency timeout | `ETIMEOUT` | 504 | -32000..-32099 | DEADLINE_EXCEEDED |
+| Malformed input, schema violation | `ALX_ERR_VALIDATION` | 400 (422 if the API uses it) | -32602 | INVALID_ARGUMENT |
+| Not authenticated, bad credentials | `ALX_ERR_AUTH` | 401 | app code | UNAUTHENTICATED |
+| Authenticated but not allowed | `ALX_ERR_FORBIDDEN` | 403, or 404 to hide existence | app code | PERMISSION_DENIED |
+| Entity absent | `ALX_ERR_NOT_FOUND` | 404 | app code | NOT_FOUND |
+| Duplicate, version conflict | `ALX_ERR_CONFLICT` | 409 | app code | ALREADY_EXISTS / ABORTED |
+| Business rule (stock, limits, state) | `ALX_ERR_PRECONDITION` | 409 or 422 | app code | FAILED_PRECONDITION |
+| Rate limit, quota | `ALX_ERR_LIMIT` | 429 with `Retry-After` | app code | RESOURCE_EXHAUSTED |
+| Body too large | `ALX_ERR_TOO_LARGE` | 413 | app code | RESOURCE_EXHAUSTED |
+| Overloaded, shutting down, circuit open | `ALX_ERR_UNAVAILABLE` | 503 with `Retry-After` | -32000..-32099 | UNAVAILABLE |
+| Dependency timeout | `ALX_ERR_TIMEOUT` | 504 | -32000..-32099 | DEADLINE_EXCEEDED |
 | Unknown method or route | - | 404 / 405 | -32601 | UNIMPLEMENTED |
 | Unparsable packet | - | 400 | -32700 | INVALID_ARGUMENT |
-| Anything else (bug) | `EINTERNAL` | 500 | -32603 | INTERNAL |
+| Anything else (bug) | `ALX_ERR_INTERNAL` | 500 | -32603 | INTERNAL |
 
 - JSON-RPC reserves -32768..-32000. Application codes use other integers.
 - WebSocket close codes are for connection-level failures: 1001 going away, 1008
@@ -33,15 +33,15 @@ and error ids.
 // 4xx authored by us
 const clientError = {
   error: {
-    code: 'EVALIDATION',
+    code: 'ALX_ERR_VALIDATION',
     message: 'Invalid input',
-    details: [{ field: 'email', code: 'EFORMAT' }],
+    details: [{ field: 'email', code: 'format' }],
   },
 };
 
 // 5xx and unknown
 const internalError = {
-  error: { code: 'EINTERNAL', message: 'Internal error', errorId: '...' },
+  error: { code: 'ALX_ERR_INTERNAL', message: 'Internal error', errorId: '...' },
 };
 ```
 
@@ -89,15 +89,15 @@ Node.js 22 and 24). Always convert explicitly:
 
 ```js
 const toWire = (error, requestId) => ({
-  code: error.code ?? 'EINTERNAL',
+  code: error.code ?? 'ALX_ERR_INTERNAL',
   message: error.code ? error.message : 'Internal error',
   details: error.details ?? null,
   requestId,
 });
 
-const fromWire = (wire, service) => {
+const throwFromWire = (wire, service) => {
   const message = `${service}: ${wire.message}`;
-  return new DomainError(wire.code, { message, details: wire.details });
+  throw new DomainError(wire.code, { message, details: wire.details });
 };
 ```
 

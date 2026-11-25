@@ -78,6 +78,12 @@ Options worth setting: `onError`, `logger` (a Pino instance gets one structured 
 action), `hooks`, `hooksTimeoutMs`, `relationsTimeoutMs`, `maxConcurrency`, `cache` with `codec` for
 stored policies, `schemas` for attribute enforcement.
 
+4.3 exports Zod, TypeBox and JSON Schema builders of its own policy DSL and requests
+(`ZodSchemas`, `TypeBoxSchemas`, `JsonSchemas`, and a set per part such as
+`ResourcePolicyJsonSchemas`), with the Zod or TypeBox module injected. They describe kerberos
+policies, not the application's data, so they are not a second source of its schemas. Support for
+metaschema beside them is planned; until it ships, use them as they are.
+
 ## In a wrpc procedure
 
 wrpc checks one thing itself: a call without a session is refused unless the procedure is `public`.
@@ -88,6 +94,8 @@ procedure that declares no rule is refused:
 ```js
 const SELF_AUTHORIZED = new Set(['system/introspect']);
 
+// wrpc sends the numeric `code` of a thrown error as the wire status. A string code such as
+// `ALX_ERR_FORBIDDEN` would reach the client as 500, so a hook keeps the wire code.
 const forbidden = () => {
   const error = new Error('Forbidden');
   error.code = 403;
@@ -133,7 +141,11 @@ const COMPARE = { eq: '$eq', ne: '$ne', lt: '$lt', le: '$lte', gt: '$gt', ge: '$
 const MIRROR = { eq: 'eq', ne: 'ne', lt: 'gt', le: 'ge', gt: 'lt', ge: 'le' };
 const LOGIC = { and: '$and', or: '$or' };
 
-const postFilter = (reason) => new Error(`post-filter required: ${reason}`);
+const postFilter = (reason) => {
+  const error = new Error(`post-filter required: ${reason}`);
+  error.code = 'ALX_ERR_POST_FILTER';
+  return error;
+};
 
 const toField = ({ variable }) => {
   if (variable === RESOURCE_ID) return 'id';

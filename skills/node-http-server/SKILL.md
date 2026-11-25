@@ -18,7 +18,7 @@ has a deadline, and static files and proxies leave no traversal or SSRF holes.
 | Cross-cutting code | Per-route wrappers                          | Fastify hooks                                              |
 | Outgoing HTTP      | Global `fetch`                              | undici behind an Application port. Axios is banned         |
 | Validation         | Its own checks                              | `@alexify/metaschema`, see `js-contracts-schemas`          |
-| Errors             | `Error` with `code`                         | One `setErrorHandler`, see `error-handling`                |
+| Errors             | Own class with an `ALX_ERR_` code           | One `setErrorHandler`, see `error-handling`                |
 | Logging            | Injected logger                             | Pino through `request.log`                                 |
 
 ## Defaults
@@ -55,7 +55,7 @@ The full wiring, with a lifecycle table and an `inject` test, is in
 // modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from './app/orders.service.ts';
+import { createOrderService, type OrderService } from './app/orders.service.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -102,7 +102,7 @@ export default fp(
 ```ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
+import { CreateOrderBody, OrderReply } from './orders.schemas.js';
 
 const orderRoutes = async (fastify: FastifyInstance) => {
   const guarded = { preHandler: [fastify.authenticate] };

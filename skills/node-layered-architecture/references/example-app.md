@@ -1,8 +1,9 @@
 # Complete modular example (runnable)
 
 A small app in the App profile with one module, `accounts`: ESM, TypeScript with
-erasable syntax, Fastify, the native `mongodb` driver. Every file below runs on
-Node.js 24 with type stripping, and the tests run under Vitest with DI fakes.
+erasable syntax, Fastify, the native `mongodb` driver. Every file below
+type-checks with `tsc` under NodeNext, the build in `dist/` runs on Node.js 24,
+and the tests run under Vitest with DI fakes.
 The layout and the naming rules are in [modules.md](modules.md).
 
 ```text
@@ -26,19 +27,23 @@ Inside the module dependencies point inward: `presentation -> app -> domain`, an
 
 ## Project files
 
-`package.json` maps the import aliases, and `tsconfig.json` allows only what
-type stripping can run:
+Relative imports end in `.js`, as NodeNext requires. `package.json` maps the
+import aliases: the `source` condition points `tsc` and Vitest at the
+TypeScript, and Node.js gets the build in `dist/`:
 
 ```json
 {
   "type": "module",
   "imports": {
-    "#app": "./src/app.ts",
-    "#shared/*": "./src/shared/*",
-    "#modules/*": "./src/modules/*/index.ts"
+    "#app": { "source": "./src/app.ts", "default": "./dist/app.js" },
+    "#shared/*": { "source": "./src/shared/*", "default": "./dist/shared/*" },
+    "#modules/*": { "source": "./src/modules/*/index.ts", "default": "./dist/modules/*/index.js" }
   }
 }
 ```
+
+`tsconfig.json` checks everything, `tsconfig.build.json` emits `dist/` without
+the tests:
 
 ```json
 {
@@ -46,14 +51,34 @@ type stripping can run:
     "target": "es2023",
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "customConditions": ["source"],
     "strict": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
   "include": ["src"]
 }
+```
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": false, "rootDir": "src", "outDir": "dist" },
+  "exclude": ["src/**/tests/**"]
+}
+```
+
+Vitest runs Node tests as SSR, so the condition goes into `ssr.resolve`. A plain
+`resolve.conditions` does not reach them:
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  ssr: { resolve: { conditions: ['source'] } },
+});
 ```
 
 ## Shared kernel
@@ -62,13 +87,18 @@ Every module may import it. It has the same layers as a module.
 
 ```ts
 // src/shared/domain/domain-error.ts
+type DomainErrorOptions = { message?: string; cause?: unknown; details?: unknown };
+
 export class DomainError extends Error {
   readonly code: string;
+  readonly details: unknown;
 
-  constructor(message: string, code: string) {
-    super(message);
+  constructor(code: string, options: DomainErrorOptions = {}) {
+    const { message = code, cause, details = null } = options;
+    super(message, { cause });
     this.name = 'DomainError';
     this.code = code;
+    this.details = details;
   }
 }
 ```
@@ -104,7 +134,7 @@ export const isAllowed = (access: unknown, session: Session | null) => {
 // src/shared/infra/session-store.ts
 import { randomBytes } from 'node:crypto';
 
-import type { Session, SessionStore } from '#shared/app/access.ts';
+import type { Session, SessionStore } from '#shared/app/access.js';
 
 export const createSessionStore = (): SessionStore => {
   const sessions = new Map<string, Session>();
@@ -151,28 +181,28 @@ export type AccountState = {
 
 ```ts
 // src/modules/accounts/domain/credentials.ts
-import { DomainError } from '#shared/domain/domain-error.ts';
+import { DomainError } from '#shared/domain/domain-error.js';
 
-import { LOGIN, PASSWORD_MIN_LENGTH } from './accounts.constants.ts';
+import { LOGIN, PASSWORD_MIN_LENGTH } from './accounts.constants.js';
 
 export const normalizeLogin = (login: string) => {
   const value = login.trim().toLowerCase();
-  if (!LOGIN.test(value)) throw new DomainError('Invalid login', 'EVALIDATION');
+  if (!LOGIN.test(value)) throw new DomainError('ALX_ERR_VALIDATION', { message: 'Invalid login' });
   return value;
 };
 
 export const checkPassword = (password: string) => {
   if (password.length >= PASSWORD_MIN_LENGTH) return;
-  throw new DomainError('Password is too short', 'EVALIDATION');
+  throw new DomainError('ALX_ERR_VALIDATION', { message: 'Password is too short' });
 };
 ```
 
 ```ts
 // src/modules/accounts/domain/account.ts
-import { DomainError } from '#shared/domain/domain-error.ts';
+import { DomainError } from '#shared/domain/domain-error.js';
 
-import type { AccountState } from './accounts.types.ts';
-import { normalizeLogin } from './credentials.ts';
+import type { AccountState } from './accounts.types.js';
+import { normalizeLogin } from './credentials.js';
 
 export class Account {
   #state: AccountState;
@@ -195,11 +225,14 @@ export class Account {
   }
 
   ensureCanSignIn() {
-    if (this.#state.blocked) throw new DomainError('Account is blocked', 'EBLOCKED');
+    if (!this.#state.blocked) return;
+    throw new DomainError('ALX_ERR_BLOCKED', { message: 'Account is blocked' });
   }
 
   block() {
-    if (this.#state.blocked) throw new DomainError('Already blocked', 'ECONFLICT');
+    if (this.#state.blocked) {
+      throw new DomainError('ALX_ERR_CONFLICT', { message: 'Already blocked' });
+    }
     this.#state.blocked = true;
   }
 
@@ -211,7 +244,7 @@ export class Account {
 
 ```ts
 // src/modules/accounts/domain/accounts.repository.ts
-import type { Account } from './account.ts';
+import type { Account } from './account.js';
 
 export interface AccountsRepository {
   findByLogin(login: string): Promise<Account | null>;
@@ -239,10 +272,10 @@ export interface Logger {
 
 ```ts
 // src/modules/accounts/app/accounts.types.ts
-import type { SessionStore } from '#shared/app/access.ts';
+import type { SessionStore } from '#shared/app/access.js';
 
-import type { AccountsRepository } from '../domain/accounts.repository.ts';
-import type { Logger, PasswordHasher } from './accounts.ports.ts';
+import type { AccountsRepository } from '../domain/accounts.repository.js';
+import type { Logger, PasswordHasher } from './accounts.ports.js';
 
 export type AccountsDeps = {
   repository: AccountsRepository;
@@ -262,12 +295,12 @@ responsibility:
 
 ```ts
 // src/modules/accounts/app/accounts.service.ts
-import type { Session } from '#shared/app/access.ts';
-import { DomainError } from '#shared/domain/domain-error.ts';
+import type { Session } from '#shared/app/access.js';
+import { DomainError } from '#shared/domain/domain-error.js';
 
-import { Account } from '../domain/account.ts';
-import { checkPassword, normalizeLogin } from '../domain/credentials.ts';
-import type { AccountsDeps, Credentials } from './accounts.types.ts';
+import { Account } from '../domain/account.js';
+import { checkPassword, normalizeLogin } from '../domain/credentials.js';
+import type { AccountsDeps, Credentials } from './accounts.types.js';
 
 export const createAccountsService = (deps: AccountsDeps) => {
   const { repository, hasher, sessions, logger, createId, dummyHash } = deps;
@@ -286,7 +319,9 @@ export const createAccountsService = (deps: AccountsDeps) => {
     const account = await repository.findByLogin(normalizeLogin(login));
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
-    if (!account || !isMatch) throw new DomainError('Wrong credentials', 'EAUTH');
+    if (!account || !isMatch) {
+      throw new DomainError('ALX_ERR_AUTH', { message: 'Wrong credentials' });
+    }
     account.ensureCanSignIn();
     const token = await sessions.start({ accountId: account.id });
     return { token };
@@ -326,7 +361,7 @@ export type AccountDocument = {
 // src/modules/accounts/infra/accounts.collection.ts
 import type { Db } from 'mongodb';
 
-import type { AccountDocument } from './accounts.types.ts';
+import type { AccountDocument } from './accounts.types.js';
 
 export const ACCOUNTS = 'accounts';
 
@@ -341,11 +376,11 @@ export const openAccounts = async (db: Pick<Db, 'collection'>) => {
 // src/modules/accounts/infra/accounts.repository.ts
 import type { Collection } from 'mongodb';
 
-import { DomainError } from '#shared/domain/domain-error.ts';
+import { DomainError } from '#shared/domain/domain-error.js';
 
-import { Account } from '../domain/account.ts';
-import type { AccountsRepository } from '../domain/accounts.repository.ts';
-import type { AccountDocument } from './accounts.types.ts';
+import { Account } from '../domain/account.js';
+import type { AccountsRepository } from '../domain/accounts.repository.js';
+import type { AccountDocument } from './accounts.types.js';
 
 const DUPLICATE_KEY = 11000;
 
@@ -366,7 +401,7 @@ export const createAccountsRepository = (
       await collection.insertOne({ cuid, login, passwordHash, blocked, v: 1, rev });
     } catch (error) {
       if ((error as { code?: number }).code !== DUPLICATE_KEY) throw error;
-      throw new DomainError('Login is taken', 'ECONFLICT');
+      throw new DomainError('ALX_ERR_CONFLICT', { message: 'Login is taken' });
     }
   },
 
@@ -388,7 +423,7 @@ the indexes come from a `@alexify/migronaut` migration of the module.
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import type { PasswordHasher } from '../app/accounts.ports.ts';
+import type { PasswordHasher } from '../app/accounts.ports.js';
 
 const scryptAsync = promisify(scrypt);
 const KEY_LENGTH = 64;
@@ -427,9 +462,9 @@ export const CredentialsSchema = Schema.from({ login: 'string', password: 'strin
 // src/modules/accounts/presentation/accounts.routes.ts
 import type { FastifyInstance } from 'fastify';
 
-import type { AccountsService } from '../app/accounts.service.ts';
-import type { Credentials } from '../app/accounts.types.ts';
-import { CredentialsSchema } from './accounts.schemas.ts';
+import type { AccountsService } from '../app/accounts.service.js';
+import type { Credentials } from '../app/accounts.types.js';
+import { CredentialsSchema } from './accounts.schemas.js';
 
 type RoutesOptions = { service: AccountsService };
 
@@ -466,16 +501,16 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from 'mongodb';
 
-import type { SessionStore } from '#shared/app/access.ts';
+import type { SessionStore } from '#shared/app/access.js';
 
-import { createAccountsService } from './app/accounts.service.ts';
-import type { AccountsService } from './app/accounts.service.ts';
-import { openAccounts } from './infra/accounts.collection.ts';
-import { createAccountsRepository } from './infra/accounts.repository.ts';
-import { createPasswordHasher } from './infra/password-hasher.ts';
-import { accountsRoutes } from './presentation/accounts.routes.ts';
+import { createAccountsService } from './app/accounts.service.js';
+import type { AccountsService } from './app/accounts.service.js';
+import { openAccounts } from './infra/accounts.collection.js';
+import { createAccountsRepository } from './infra/accounts.repository.js';
+import { createPasswordHasher } from './infra/password-hasher.js';
+import { accountsRoutes } from './presentation/accounts.routes.js';
 
-export type { AccountsService } from './app/accounts.service.ts';
+export type { AccountsService } from './app/accounts.service.js';
 
 export type AccountsOptions = {
   db: Pick<Db, 'collection'>;
@@ -518,19 +553,19 @@ import fp from 'fastify-plugin';
 import type { FastifySchemaCompiler } from 'fastify';
 import type { Schema, ValidationIssue } from '@alexify/metaschema';
 
-const TEXT_PARTS = ['querystring', 'params', 'headers'];
+const TEXT_PARTS = new Set(['querystring', 'params', 'headers']);
 
 const toError = (issues: readonly ValidationIssue[]) => {
   const error = new Error('Validation failed') as Error & Record<string, unknown>;
   error.statusCode = 400;
-  error.code = 'EVALIDATION';
+  error.code = 'ALX_ERR_VALIDATION';
   error.validation = issues;
   return error;
 };
 
 const metaschemaCompiler: FastifySchemaCompiler<Schema> = ({ schema, httpPart }) => {
   const part = httpPart ?? '';
-  const coerce = TEXT_PARTS.includes(part);
+  const coerce = TEXT_PARTS.has(part);
   const unknown = part === 'headers' ? 'ignore' : 'reject';
   return (data) => {
     const { valid, value, issues } = schema.parse(data, { coerce, unknown });
@@ -552,23 +587,28 @@ import { randomUUID } from 'node:crypto';
 
 import fp from 'fastify-plugin';
 
-const STATUS = new Map<unknown, number>([
-  ['EVALIDATION', 400],
-  ['EAUTH', 401],
-  ['EBLOCKED', 403],
-  ['ECONFLICT', 409],
-]);
+import { DomainError } from '#shared/domain/domain-error.js';
+
+const STATUS: Record<string, number> = {
+  ALX_ERR_VALIDATION: 400,
+  ALX_ERR_AUTH: 401,
+  ALX_ERR_BLOCKED: 403,
+  ALX_ERR_CONFLICT: 409,
+};
 
 export default fp(
   async (fastify) => {
     fastify.setErrorHandler((error: any, request, reply) => {
-      const status = STATUS.get(error.code);
-      if (status) return reply.code(status).send({ code: error.code, message: error.message });
+      const status = error instanceof DomainError ? STATUS[error.code] : undefined;
       const isClientError = error.statusCode >= 400 && error.statusCode < 500;
-      if (isClientError) return reply.code(error.statusCode).send({ message: error.message });
+      if (status !== undefined || isClientError) {
+        const { code, message } = error;
+        return reply.code(status ?? error.statusCode).send({ error: { code, message } });
+      }
       const errorId = randomUUID();
       request.log.error({ err: error, errorId }, 'unexpected error');
-      return reply.code(500).send({ message: 'Internal error', errorId });
+      const failure = { code: 'ALX_ERR_INTERNAL', message: 'Internal error', errorId };
+      return reply.code(500).send({ error: failure });
     });
   },
   { name: 'errors' },
@@ -584,8 +624,8 @@ before the guard was registered, where `onRoute` did not fire.
 import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
 
-import { isAllowed, isDeclared } from '#shared/app/access.ts';
-import type { Session, SessionStore } from '#shared/app/access.ts';
+import { isAllowed, isDeclared } from '#shared/app/access.js';
+import type { Session, SessionStore } from '#shared/app/access.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -611,7 +651,7 @@ const guard = async (fastify: FastifyInstance, { sessions }: { sessions: Session
     const token = readToken(request.headers.authorization);
     request.session = token ? await sessions.restore(token) : null;
     if (isAllowed(request.routeOptions.config.access, request.session)) return;
-    return reply.code(403).send({ message: 'Forbidden' });
+    return reply.code(403).send({ error: { code: 'ALX_ERR_FORBIDDEN', message: 'Forbidden' } });
   });
 };
 
@@ -631,11 +671,11 @@ import type { FastifyServerOptions } from 'fastify';
 import type { Db } from 'mongodb';
 
 import accounts from '#modules/accounts';
-import type { SessionStore } from '#shared/app/access.ts';
+import type { SessionStore } from '#shared/app/access.js';
 
-import access from './plugins/access.ts';
-import errors from './plugins/errors.ts';
-import validation from './plugins/validation.ts';
+import access from './plugins/access.js';
+import errors from './plugins/errors.js';
+import validation from './plugins/validation.js';
 
 export type AppDeps = {
   db: Pick<Db, 'collection'>;
@@ -659,9 +699,9 @@ import { randomUUID } from 'node:crypto';
 
 import { MongoClient } from 'mongodb';
 
-import { createSessionStore } from '#shared/infra/session-store.ts';
+import { createSessionStore } from '#shared/infra/session-store.js';
 
-import { buildApp } from './app.ts';
+import { buildApp } from './app.js';
 
 const { DATABASE_URL = '', PORT = '3000' } = process.env;
 
@@ -686,8 +726,8 @@ code it checks. The fakes shared by the tests of the module live in the module:
 
 ```ts
 // src/modules/accounts/tests/fakes.ts: fakes shared by the tests of the module
-import type { Account } from '../domain/account.ts';
-import type { AccountsRepository } from '../domain/accounts.repository.ts';
+import type { Account } from '../domain/account.js';
+import type { AccountsRepository } from '../domain/accounts.repository.js';
 
 export const createFakeCollection = () => {
   const documents: any[] = [];
@@ -738,8 +778,8 @@ The domain needs no fake:
 // src/modules/accounts/domain/tests/account.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { Account } from '../account.ts';
-import { normalizeLogin } from '../credentials.ts';
+import { Account } from '../account.js';
+import { normalizeLogin } from '../credentials.js';
 
 describe('Account', () => {
   it('should refuse to block an account twice', () => {
@@ -749,7 +789,7 @@ describe('Account', () => {
     // Act
     const attempt = () => account.block();
     // Assert
-    expect(attempt).toThrow(expect.objectContaining({ code: 'ECONFLICT' }));
+    expect(attempt).toThrow(expect.objectContaining({ code: 'ALX_ERR_CONFLICT' }));
   });
 
   it('should normalize a login and reject a malformed one', () => {
@@ -759,7 +799,8 @@ describe('Account', () => {
     const normalized = normalizeLogin(valid);
     // Assert
     expect(normalized).toBe('marcus');
-    expect(() => normalizeLogin('1 bad')).toThrow(expect.objectContaining({ code: 'EVALIDATION' }));
+    const invalid = expect.objectContaining({ code: 'ALX_ERR_VALIDATION' });
+    expect(() => normalizeLogin('1 bad')).toThrow(invalid);
   });
 });
 ```
@@ -770,10 +811,10 @@ The service runs without a server, with a fake repository:
 // src/modules/accounts/app/tests/accounts.service.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { createSessionStore } from '#shared/infra/session-store.ts';
+import { createSessionStore } from '#shared/infra/session-store.js';
 
-import { createFakeRepository, fakeHasher } from '../../tests/fakes.ts';
-import { createAccountsService } from '../accounts.service.ts';
+import { createFakeRepository, fakeHasher } from '../../tests/fakes.js';
+import { createAccountsService } from '../accounts.service.js';
 
 const createDeps = () => ({
   repository: createFakeRepository(),
@@ -793,7 +834,7 @@ describe('accounts service', () => {
     // Act
     const attempt = service.signIn({ login: 'ghost', password: 'dummy' });
     // Assert
-    await expect(attempt).rejects.toMatchObject({ code: 'EAUTH' });
+    await expect(attempt).rejects.toMatchObject({ code: 'ALX_ERR_AUTH' });
   });
 
   it('should refuse a blocked account after the password check', async () => {
@@ -806,7 +847,7 @@ describe('accounts service', () => {
     // Act
     const attempt = service.signIn(credentials);
     // Assert
-    await expect(attempt).rejects.toMatchObject({ code: 'EBLOCKED' });
+    await expect(attempt).rejects.toMatchObject({ code: 'ALX_ERR_BLOCKED' });
   });
 });
 ```
@@ -817,9 +858,9 @@ The repository runs over a fake collection that behaves like the unique index:
 // src/modules/accounts/infra/tests/accounts.repository.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { Account } from '../../domain/account.ts';
-import { createFakeCollection } from '../../tests/fakes.ts';
-import { createAccountsRepository } from '../accounts.repository.ts';
+import { Account } from '../../domain/account.js';
+import { createFakeCollection } from '../../tests/fakes.js';
+import { createAccountsRepository } from '../accounts.repository.js';
 
 describe('accounts repository', () => {
   it('should reject a duplicate login through the unique index', async () => {
@@ -829,7 +870,7 @@ describe('accounts repository', () => {
     // Act
     const attempt = repository.insert(Account.register('a2', 'MARCUS', 'hash'));
     // Assert
-    await expect(attempt).rejects.toMatchObject({ code: 'ECONFLICT' });
+    await expect(attempt).rejects.toMatchObject({ code: 'ALX_ERR_CONFLICT' });
   });
 
   it('should detect a lost update through rev', async () => {
@@ -855,9 +896,9 @@ The routes run through `inject` on the real plugin tree:
 import { describe, expect, it } from 'vitest';
 
 import { buildApp } from '#app';
-import { createSessionStore } from '#shared/infra/session-store.ts';
+import { createSessionStore } from '#shared/infra/session-store.js';
 
-import { createFakeDb } from '../../tests/fakes.ts';
+import { createFakeDb } from '../../tests/fakes.js';
 
 const createDeps = () => {
   let counter = 0;
@@ -908,9 +949,9 @@ The guard and the access decision are tested where they live:
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { createSessionStore } from '#shared/infra/session-store.ts';
+import { createSessionStore } from '#shared/infra/session-store.js';
 
-import access from '../access.ts';
+import access from '../access.js';
 
 describe('access guard', () => {
   it('should fail the boot when a route declares no access', async () => {
@@ -948,7 +989,7 @@ describe('access guard', () => {
 // src/shared/app/tests/access.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { isAllowed, isDeclared } from '../access.ts';
+import { isAllowed, isDeclared } from '../access.js';
 
 describe('access decision', () => {
   it('should refuse a missing or unknown declaration, even with a session', () => {

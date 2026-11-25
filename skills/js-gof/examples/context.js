@@ -1,13 +1,13 @@
 const PERMISSIONS = {
-  admin: ['read:balance', 'read:transactions', 'write:transactions'],
-  user: ['read:balance'],
-  guest: [],
+  admin: new Set(['read:balance', 'read:transactions', 'write:transactions']),
+  user: new Set(['read:balance']),
+  guest: new Set(),
 };
 
 const accessPolicy = {
   check(role, permission) {
-    const granted = PERMISSIONS[role] ?? [];
-    return granted.includes(permission);
+    const granted = PERMISSIONS[role];
+    return granted !== undefined && granted.has(permission);
   },
 };
 

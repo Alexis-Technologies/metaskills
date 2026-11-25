@@ -63,10 +63,7 @@
     "default-case-last": "error",
     "eqeqeq": [
       "error",
-      "always",
-      {
-        "null": "ignore"
-      }
+      "always"
     ],
     "new-cap": [
       "error",
@@ -204,7 +201,6 @@
     "no-useless-escape": "error",
     "no-useless-rename": "error",
     "no-useless-return": "error",
-    "no-void": "error",
     "no-with": "error",
     "prefer-const": [
       "error",
@@ -344,6 +340,18 @@
     },
     {
       "files": [
+        "src/**/tests/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+      ],
+      "rules": {
+        "no-restricted-properties": "off",
+        "unicorn/no-array-for-each": "off",
+        "unicorn/no-array-reduce": "off"
+      }
+    },
+    {
+      "files": [
         "bin/**",
         "scripts/**",
         "evals/**",
@@ -354,10 +362,11 @@
       }
     },
     {
-      "files": ["skills/**/examples/**"],
+      "files": [
+        "skills/**/examples/**"
+      ],
       "rules": {
-        "no-shadow": "off",
-        "no-void": "off"
+        "no-shadow": "off"
       }
     }
   ]

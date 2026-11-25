@@ -7,24 +7,26 @@ All blocks ran on Node.js 24. Native protocol examples are in
 ## Contract test for several implementations
 
 ```js
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 
 const storageContract = (name, create) => {
-  test(`${name}: get after set`, async () => {
-    const storage = await create();
-    await storage.set('a', 1);
-    assert.strictEqual(await storage.get('a'), 1);
-  });
-
-  test(`${name}: callback is never synchronous`, async () => {
-    const storage = await create();
-    let isSync = true;
-    const pending = storage.get('missing').then(() => {
-      assert.strictEqual(isSync, false);
+  describe(`${name} storage`, () => {
+    it('should get the value after set', async () => {
+      const storage = await create();
+      await storage.set('a', 1);
+      assert.equal(await storage.get('a'), 1);
     });
-    isSync = false;
-    await pending;
+
+    it('should never call back synchronously', async () => {
+      const storage = await create();
+      let isSync = true;
+      const pending = storage.get('missing').then(() => {
+        assert.equal(isSync, false);
+      });
+      isSync = false;
+      await pending;
+    });
   });
 };
 
@@ -47,17 +49,19 @@ driver, Redis) so the fake cannot drift from the contract.
 One definition also generates the fixtures, so a test does not restate the shape:
 
 ```js
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 const { Schema } = require('@alexify/metaschema');
 const { sample } = require('@alexify/metaschema/model');
 
 const Point = Schema.from({ x: 'number', y: 'number' });
 
-test('accepts a generated value and refuses an unknown key', () => {
-  const value = sample(Point);
-  assert.strictEqual(Point.check(value).valid, true);
-  const { issues } = Point.check({ ...value, isAdmin: true });
-  assert.strictEqual(issues[0].code, 'unexpected');
+describe('Point', () => {
+  it('should accept a generated value and refuse an unknown key', () => {
+    const value = sample(Point);
+    assert.equal(Point.check(value).valid, true);
+    const { issues } = Point.check({ ...value, isAdmin: true });
+    assert.equal(issues[0].code, 'unexpected');
+  });
 });
 ```

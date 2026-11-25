@@ -219,8 +219,10 @@ Why it is written this way:
   modifies nothing, and that is not a conflict.
 - **The read after a missed write** tells a conflict (409, reload) from a missing document (404).
   It runs in the same session.
-- **`rev` is bumped on every write.** A background migration guards its own write with the revision
-  it read. A write that leaves `rev` alone is invisible to it and can be overwritten.
+- **`update` guards and bumps `rev`.** It is the read-modify-write path of an aggregate that uses
+  OCC. ADR-017 section 14 lets a single atomic operator, such as a counter's `$inc`, skip both,
+  unless a background migration rewrites that field: it guards with the `rev` it read and cannot
+  see a write that left `rev` alone.
 
 ## One repository per aggregate
 

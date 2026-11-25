@@ -7,7 +7,7 @@ CHANGELOG, `pnpm pack --dry-run`) live in the `npm-publish` skill.
 
 | Field                  | Effect                                                                      | Advice                                                   |
 | ---------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `type`                 | how `.js` files are parsed (`commonjs` default, or `module`)                | set it in a new package                                  |
+| `type`                 | how `.js` files are parsed (`commonjs` default, or `module`)                | set it; Deno reads `.js` as ESM without `commonjs`       |
 | `main`                 | entry for `require('pkg')` when there is no `exports`                       | keep as fallback for old tools                           |
 | `exports`              | the only reachable entry points; conditions per environment                 | declare every public subpath                             |
 | `imports`              | private `#aliases` inside the package                                       | replace deep relative paths                              |
@@ -19,7 +19,7 @@ CHANGELOG, `pnpm pack --dry-run`) live in the `npm-publish` skill.
 | `scripts`              | lifecycle and custom commands                                               | see `node-tooling-testing`                               |
 | `dependencies`         | runtime deps                                                                | none in a library, minimal in an app                     |
 | `devDependencies`      | build/test/lint tools                                                       | never needed at runtime                                  |
-| `peerDependencies`     | host library the consumer provides (plugins, adapters, a driver)            | widest compatible range; `peerDependenciesMeta.optional` |
+| `peerDependencies`     | a package the library requires lazily or takes from the caller              | widest range; `optional` when most consumers skip it     |
 | `optionalDependencies` | install may fail without failing the whole install                          | platform-specific binaries                               |
 | `overrides`            | force transitive versions; with pnpm it lives in `pnpm-workspace.yaml`      | temporary security fixes; document why                   |
 | `private: true`        | prevents an accidental publish                                              | set for applications                                     |

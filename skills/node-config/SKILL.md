@@ -93,7 +93,7 @@ export const ConfigSchema = new Schema('Config', definition);
 export type Config = InferOutput<typeof definition>;
 
 export class ConfigError extends Error {
-  readonly code = 'ECONFIG';
+  readonly code = 'ALX_ERR_CONFIG';
 
   constructor(message: string) {
     super(message);
@@ -127,7 +127,7 @@ export const loadConfig = (env: Record<string, string | undefined>): Readonly<Co
 // plugins/config.ts
 import fp from 'fastify-plugin';
 
-import { loadConfig, type Config } from '../config.ts';
+import { loadConfig, type Config } from '../config.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -186,12 +186,20 @@ coerces types and applies defaults. Check that it knows every `format` the schem
 ```js
 const DEFAULTS = Object.freeze({ timeoutMs: 5000, retries: 2 });
 
+class OptionsError extends RangeError {
+  constructor(message) {
+    super(message);
+    this.name = 'OptionsError';
+    this.code = 'ALX_ERR_OPTIONS';
+  }
+}
+
 class Client {
   constructor(options = {}) {
     const timeoutMs = options.timeoutMs ?? DEFAULTS.timeoutMs;
     const retries = options.retries ?? DEFAULTS.retries;
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
-      throw new RangeError('timeoutMs must be a positive integer');
+      throw new OptionsError('timeoutMs must be a positive integer');
     }
     this.timeoutMs = timeoutMs;
     this.retries = retries;
@@ -200,7 +208,9 @@ class Client {
 ```
 
 A library documents its options in the `.d.ts`, validates them once in the constructor and never
-reads the environment. The app maps its config onto those options in a plugin.
+reads the environment. An invalid option throws the library's own class with a code, which may
+extend `RangeError` or `TypeError` so `instanceof` keeps working (`error-handling`). The app maps its
+config onto those options in a plugin.
 
 ## Anti-patterns
 

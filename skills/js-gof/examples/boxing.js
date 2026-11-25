@@ -1,12 +1,21 @@
+// Invalid input is not a bug: callers branch on `code`, and `instanceof TypeError` still holds
+class ValueError extends TypeError {
+  constructor(message, options) {
+    super(message, options);
+    this.name = 'ValueError';
+    this.code = 'ALX_ERR_INVALID_VALUE';
+  }
+}
+
 class AddressString {
   #value;
 
   constructor(value) {
     if (typeof value !== 'string') {
-      throw new TypeError('Address must be a string');
+      throw new ValueError('Address must be a string');
     }
     const str = value.trim();
-    if (str === '') throw new TypeError('Address must be non-empty');
+    if (str === '') throw new ValueError('Address must be non-empty');
     this.#value = str;
   }
 
@@ -26,18 +35,18 @@ class AddressString {
 }
 
 const KMH_TO_MPH = 0.621371;
-const TO_KMH = { kmh: 1, mph: 1 / KMH_TO_MPH };
+const TO_KMH = { __proto__: null, kmh: 1, mph: 1 / KMH_TO_MPH };
 
 class SpeedValue {
   #kmh;
 
   constructor(value, unit = 'kmh') {
     if (typeof value !== 'number') {
-      throw new TypeError('Speed must be a number');
+      throw new ValueError('Speed must be a number');
     }
-    if (value < 0) throw new TypeError('Speed must be non-negative');
+    if (value < 0) throw new ValueError('Speed must be non-negative');
     const ratio = TO_KMH[unit];
-    if (ratio === undefined) throw new TypeError('Unit must be kmh or mph');
+    if (ratio === undefined) throw new ValueError('Unit must be kmh or mph');
     this.#kmh = value * ratio;
   }
 
@@ -58,4 +67,4 @@ class SpeedValue {
   }
 }
 
-module.exports = { AddressString, SpeedValue, KMH_TO_MPH };
+module.exports = { ValueError, AddressString, SpeedValue, KMH_TO_MPH };

@@ -1,7 +1,7 @@
-const assert = require('node:assert');
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { test } = require('node:test');
+const { describe, it } = require('node:test');
 
 const { parseFrontmatter } = require('../../scripts/frontmatter.js');
 const { listSkills } = require('../../src/link.js');
@@ -89,106 +89,111 @@ const isOutside = (dir, target) => {
 
 const names = listSkills(SKILLS_DIR);
 
-test('findLinks ignores code in fences and inline', () => {
-  const text = [
-    'See [guide](guide.md) and `handlers[method](...args)`.',
-    '```js',
-    'const value = methods[name](...args);',
-    '```',
-    '  ~~~~',
-    '  [Symbol.toPrimitive](hint) {}',
-    '  ```',
-    '  ~~~~',
-    '``` not a fence ` here',
-    '``a[b](c)`` and [`code`](code.md)',
-  ].join('\n');
-  assert.deepStrictEqual(findLinks(text), ['guide.md', 'code.md']);
-});
-
-test('findLinks reads titled and reference-style links', () => {
-  const text = '[a](a.md "Title") [b](<b.md>)\n\n[ref]: ../other/SKILL.md\n';
-  assert.deepStrictEqual(findLinks(text), ['a.md', 'b.md', '../other/SKILL.md']);
-});
-
-test('isOutside tells a link out of the skill folder', () => {
-  const dir = path.join(SKILLS_DIR, 'js-gof');
-  assert.ok(isOutside(dir, path.join(SKILLS_DIR, 'js-conventions', 'SKILL.md')));
-  assert.ok(isOutside(dir, path.join(SKILLS_DIR, 'js-gof-x', 'SKILL.md')));
-  assert.ok(isOutside(dir, SKILLS_DIR));
-  assert.ok(!isOutside(dir, path.join(dir, 'patterns', 'adapter.md')));
-  assert.ok(!isOutside(dir, path.join(dir, '..hidden.md')));
-});
-
-test('a description that a plain YAML scalar cannot hold is refused', () => {
-  for (const text of ['> folded', '| literal', '"quoted"', 'Use it: now', 'one #two']) {
-    assert.ok(UNSAFE_DESCRIPTION.test(text), text);
-  }
-  assert.ok(!UNSAFE_DESCRIPTION.test('Use Map, Set and C# when asked'));
-});
-
-test('the pack list has the known packs and each skill exactly once', () => {
-  assert.deepStrictEqual(Object.keys(packs), PACK_NAMES);
-  const seen = new Set();
-  for (const pack of PACK_NAMES) {
-    assert.ok(packs[pack].length > 0, `${pack} is empty`);
-    for (const skill of packs[pack]) {
-      assert.ok(names.includes(skill), `${pack} lists a missing skill: ${skill}`);
-      assert.ok(!seen.has(skill), `${skill} is in two packs`);
-      seen.add(skill);
-    }
-  }
-  assert.deepStrictEqual([...seen].sort(), names);
-});
-
-test('parseFrontmatter reports a repeated key', () => {
-  const text = '---\nname: alpha\ndescription: one\ndescription: two\n---\n';
-  assert.deepStrictEqual(parseFrontmatter(text).duplicates, ['description']);
-});
-
-test('parseFrontmatter needs a closed block at the start', () => {
-  assert.strictEqual(parseFrontmatter('# alpha\n'), null);
-  assert.strictEqual(parseFrontmatter('---\nname: alpha\n'), null);
-});
-
-test('every skills/ folder is a skill', () => {
-  const entries = fs.readdirSync(SKILLS_DIR, { withFileTypes: true });
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    if (!entry.isDirectory()) continue;
-    assert.ok(names.includes(entry.name), `${entry.name} has no SKILL.md`);
-  }
-});
-
-for (let i = 0; i < names.length; i++) {
-  const name = names[i];
-
-  test(`${name}: frontmatter name and description`, () => {
-    const frontmatter = parseFrontmatter(readSkill(name));
-    assert.ok(frontmatter, 'SKILL.md must start with a --- frontmatter block');
-    const { fields, duplicates } = frontmatter;
-    assert.deepStrictEqual(duplicates, [], 'a frontmatter key is repeated');
-    assert.strictEqual(fields.name, name, 'name must match the folder');
-    assert.ok(NAME_PATTERN.test(name), 'name: lowercase letters, digits, -');
-    assert.ok(name.length <= MAX_NAME, `name over ${MAX_NAME} chars`);
-    const description = fields.description ?? '';
-    assert.ok(description.length > 0, 'description is required');
-    assert.ok(!UNSAFE_DESCRIPTION.test(description), 'description must be a plain one-line scalar');
+describe('skills', () => {
+  it('should ignore code in fences and inline in findLinks', () => {
+    const text = [
+      'See [guide](guide.md) and `handlers[method](...args)`.',
+      '```js',
+      'const value = methods[name](...args);',
+      '```',
+      '  ~~~~',
+      '  [Symbol.toPrimitive](hint) {}',
+      '  ```',
+      '  ~~~~',
+      '``` not a fence ` here',
+      '``a[b](c)`` and [`code`](code.md)',
+    ].join('\n');
+    assert.deepStrictEqual(findLinks(text), ['guide.md', 'code.md']);
   });
 
-  test(`${name}: relative links resolve and stay in the skill`, () => {
-    const skillDir = path.join(SKILLS_DIR, name);
-    const files = listMarkdown(skillDir);
-    for (let j = 0; j < files.length; j++) {
-      const file = files[j];
-      const links = findLinks(fs.readFileSync(file, 'utf8'));
-      for (const link of links) {
-        const target = link.split('#')[0];
-        if (target === '' || EXTERNAL_LINK.test(target)) continue;
-        const resolved = path.resolve(path.dirname(file), target);
-        const where = `${path.relative(SKILLS_DIR, file)} -> ${target}`;
-        assert.ok(fs.existsSync(resolved), `broken link ${where}`);
-        assert.ok(!isOutside(skillDir, resolved), `link out of the skill ${where}`);
+  it('should read titled and reference-style links in findLinks', () => {
+    const text = '[a](a.md "Title") [b](<b.md>)\n\n[ref]: ../other/SKILL.md\n';
+    assert.deepStrictEqual(findLinks(text), ['a.md', 'b.md', '../other/SKILL.md']);
+  });
+
+  it('should tell a link out of the skill folder in isOutside', () => {
+    const dir = path.join(SKILLS_DIR, 'js-gof');
+    assert.ok(isOutside(dir, path.join(SKILLS_DIR, 'js-conventions', 'SKILL.md')));
+    assert.ok(isOutside(dir, path.join(SKILLS_DIR, 'js-gof-x', 'SKILL.md')));
+    assert.ok(isOutside(dir, SKILLS_DIR));
+    assert.ok(!isOutside(dir, path.join(dir, 'patterns', 'adapter.md')));
+    assert.ok(!isOutside(dir, path.join(dir, '..hidden.md')));
+  });
+
+  it('should refuse a description that a plain YAML scalar cannot hold', () => {
+    for (const text of ['> folded', '| literal', '"quoted"', 'Use it: now', 'one #two']) {
+      assert.ok(UNSAFE_DESCRIPTION.test(text), text);
+    }
+    assert.ok(!UNSAFE_DESCRIPTION.test('Use Map, Set and C# when asked'));
+  });
+
+  it('should list the known packs and each skill exactly once', () => {
+    assert.deepStrictEqual(Object.keys(packs), PACK_NAMES);
+    const seen = new Set();
+    for (const pack of PACK_NAMES) {
+      assert.ok(packs[pack].length > 0, `${pack} is empty`);
+      for (const skill of packs[pack]) {
+        assert.ok(names.includes(skill), `${pack} lists a missing skill: ${skill}`);
+        assert.ok(!seen.has(skill), `${skill} is in two packs`);
+        seen.add(skill);
       }
     }
+    assert.deepStrictEqual([...seen].sort(), names);
   });
-}
+
+  it('should report a repeated key in parseFrontmatter', () => {
+    const text = '---\nname: alpha\ndescription: one\ndescription: two\n---\n';
+    assert.deepStrictEqual(parseFrontmatter(text).duplicates, ['description']);
+  });
+
+  it('should need a closed block at the start in parseFrontmatter', () => {
+    assert.strictEqual(parseFrontmatter('# alpha\n'), null);
+    assert.strictEqual(parseFrontmatter('---\nname: alpha\n'), null);
+  });
+
+  it('should find a skill in every skills/ folder', () => {
+    const entries = fs.readdirSync(SKILLS_DIR, { withFileTypes: true });
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (!entry.isDirectory()) continue;
+      assert.ok(names.includes(entry.name), `${entry.name} has no SKILL.md`);
+    }
+  });
+
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+
+    it(`should give ${name} a frontmatter name and description`, () => {
+      const frontmatter = parseFrontmatter(readSkill(name));
+      assert.ok(frontmatter, 'SKILL.md must start with a --- frontmatter block');
+      const { fields, duplicates } = frontmatter;
+      assert.deepStrictEqual(duplicates, [], 'a frontmatter key is repeated');
+      assert.strictEqual(fields.name, name, 'name must match the folder');
+      assert.ok(NAME_PATTERN.test(name), 'name: lowercase letters, digits, -');
+      assert.ok(name.length <= MAX_NAME, `name over ${MAX_NAME} chars`);
+      const description = fields.description ?? '';
+      assert.ok(description.length > 0, 'description is required');
+      assert.ok(
+        !UNSAFE_DESCRIPTION.test(description),
+        'description must be a plain one-line scalar',
+      );
+    });
+
+    it(`should resolve the relative links of ${name} inside the skill`, () => {
+      const skillDir = path.join(SKILLS_DIR, name);
+      const files = listMarkdown(skillDir);
+      for (let j = 0; j < files.length; j++) {
+        const file = files[j];
+        const links = findLinks(fs.readFileSync(file, 'utf8'));
+        for (const link of links) {
+          const target = link.split('#')[0];
+          if (target === '' || EXTERNAL_LINK.test(target)) continue;
+          const resolved = path.resolve(path.dirname(file), target);
+          const where = `${path.relative(SKILLS_DIR, file)} -> ${target}`;
+          assert.ok(fs.existsSync(resolved), `broken link ${where}`);
+          assert.ok(!isOutside(skillDir, resolved), `link out of the skill ${where}`);
+        }
+      }
+    });
+  }
+});

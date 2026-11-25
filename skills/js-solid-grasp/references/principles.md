@@ -225,18 +225,18 @@ const implementations = { memoryQueue, delayedQueue };
 for (const name in implementations) {
   const create = implementations[name];
   describe(`Queue contract: ${name}`, () => {
-    it('keeps FIFO order for concurrent pushes', async () => {
+    it('should keep FIFO order for concurrent pushes', async () => {
       const queue = create();
       await Promise.all([queue.push(1), queue.push(2), queue.push(3)]);
       assert.equal(await queue.shift(), 1);
       assert.equal(await queue.shift(), 2);
     });
 
-    it('returns null when empty, never throws', async () => {
+    it('should return null when empty, never throw', async () => {
       assert.equal(await create().shift(), null);
     });
 
-    it('always returns a promise (no sync results)', () => {
+    it('should always return a promise (no sync results)', () => {
       assert.ok(create().shift() instanceof Promise);
     });
   });
@@ -572,8 +572,9 @@ const usersPlugin = fp(
 const userRoutes = async (fastify) => {
   fastify.get('/users/:id', async (request, reply) => {
     const user = await fastify.users.read({ id: request.params.id });
-    if (!user) return reply.code(404).send({ message: 'Not found' });
-    return user;
+    if (user) return user;
+    const error = { code: 'ALX_ERR_NOT_FOUND', message: 'User not found' };
+    return reply.code(404).send({ error });
   });
   fastify.post('/users', async (request, reply) => {
     const created = await fastify.users.create({ login: request.body.login });

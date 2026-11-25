@@ -80,7 +80,7 @@ wrapper cannot touch the socket.
 
 ```js
 const withAuth = (handler) => async (args, context) => {
-  if (!context.session) throw new DomainError('EAUTH');
+  if (!context.session) throw new DomainError('ALX_ERR_AUTH');
   return handler(args, context);
 };
 

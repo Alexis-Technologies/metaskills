@@ -4,22 +4,23 @@ description: Pick native JS collections (Map, Object, Set, Array, WeakMap, Typed
 ---
 
 <!-- Adapted from metaskills v1.0.6 (skills/js-data-structures): one description key in the
-     frontmatter (upstream has two), the array-method and iteration rules of js-conventions, and
-     the examples without the fragments of data-structures classes spliced into them upstream. -->
+     frontmatter (upstream has two), the array-method, iteration, dictionary and membership rules
+     of js-conventions, rules for collections a peer can grow, and the examples without the
+     fragments of data-structures classes spliced into them upstream. -->
 
 # Native Data Structures (JavaScript)
 
 ## Choosing a native collection
 
 - Fixed schema / DTO / JSON: use `Object` (avoid `Map`, no `JSON.stringify`)
-- Dynamic string-to-value dict: use `Map`, or `Object.create(null)` in hot library code (avoid plain `{}` if keys are user input)
+- Dynamic string-to-value dict: use `Map`, or a null-prototype object (`Object.create(null)`, `{ __proto__: null }`) where an object is needed; never a plain `{}` for keys from user or peer input
 - Non-string keys, insertion order, `.size`: use `Map` (avoid `Object`)
 - Ordered list, index access, transform: use `Array` (avoid `Set`, no indexes)
-- Unique values, fast membership: use `Set` (avoid `Array.includes` on large/dynamic sets)
+- Unique values, membership: use `Set`, a module-level one for a fixed list (avoid `Array.includes`)
 - Attach data to objects without retaining them: use `WeakMap` (avoid `Map`, leaks)
 - Track object presence without retaining: use `WeakSet` (avoid `Set`, leaks)
 - Numeric / binary data, I/O, crypto: use TypedArray / `ArrayBuffer` (avoid `number[]` for hot binary work)
-- Hot queue / deque / stack ends: do not rely on `Array.shift`/`unshift` — use a custom ring or linked structure
+- Hot queue / deque / stack ends, or a queue a peer can grow: do not rely on `Array.shift`/`unshift` — use a custom ring, an index cursor or a linked structure
 
 ## Choosing a collection
 
@@ -28,34 +29,34 @@ Pick the smallest structure that matches how the values relate:
 - Fixed schema (record, entity, options): object with fixed property access
   (`obj.x`)
 - Distinct values or actions per key (dispatch): lookup table object
-  `{ key: value }`; use `Object.fromEntries` to build one from a list
+  `{ key: value }`, or `{ __proto__: null, key: value }` when the key comes
+  from input; use `Object.fromEntries` to build one from a list
 - Dynamic keys, added or deleted keys, or non-string keys: `Map`
-- String-key dictionary: `Object.create(null)` in hot library or system code;
-  `{}` in domain and non-hot code
-- Membership in domain and non-hot code: array + `.includes()` for tokens, or
-  string + `.includes(ch)` for characters; use `Set` when values change or
-  uniqueness is the meaning
-- Membership in hot library or system code: `Set.has` for tokens at any size
-  (faster than `.includes` from four items); `Uint8Array(128)` indexed by
-  `charCodeAt` for character classes
+- String-key dictionary that must be an object (JSON-like data, hot lookups):
+  `Object.create(null)` or `{ __proto__: null }`, whose keys never collide
+  with the prototype. Records stay literals or classes
+- Membership: a module-level `Set` for a fixed list of tokens (`Set.has` is
+  faster than `.includes` from four items, and oxlint's `unicorn/prefer-set-has`
+  asks for it); a string + `.includes(ch)` for a group of characters;
+  `Uint8Array(128)` indexed by `charCodeAt` for character classes in hot code
 - Numeric and binary work: typed arrays
 
 Use `obj[key]` only for lookup tables and string-key dictionaries. Use `obj.x`
 for known fields.
 
-Do not use `{ token: true, other: true }` for membership. Use a string, array,
-`Set`, or code table. Score and style tables keep real values in objects;
-membership-only character groups stay strings. See the examples in the
+Do not use `{ token: true, other: true }` for membership. Use a `Set`, a string
+of characters, or a code table. Score and style tables keep real values in
+objects; membership-only character groups stay strings. See the examples in the
 `js-conventions` skill.
 
 Keep aliases and synonyms in one map. Export small helpers such as `mapAlias`
 or `isKind` instead of copying lists. Derive lists from maps, reuse shared maps
 for overlapping subsets, and normalize aliases at the edge.
 
-The implementations below also follow the object shape and array rules in the
-`js-conventions` skill: initialize fields in constructors, keep arrays packed
-with `new Array(size).fill(null)`, return `null` for an empty read, and clear
-consumed slots.
+Custom structures built on these (the `data-structures` skill) follow the
+object shape and array rules in the `js-conventions` skill: initialize fields
+in constructors, keep arrays packed (`new Array(n)` only with a cited
+benchmark), and clear consumed slots.
 
 ## Complexity and code characteristics
 
@@ -75,7 +76,7 @@ Choose a structure for the property you need to control — not only for speed.
 - Let the type state the intent: `Set` = unique membership; `Map` = keyed registry; `Array` = ordered sequence; plain `Object` = record/DTO
 - Prefer a named collection over encoding the same idea in ad-hoc flags, parallel arrays, or stringly keys
 - In `src/` of libraries and apps, use explicit loops and no array iteration methods (`.map`, `.filter`, `.reduce`), as the `js-conventions` skill says; tests and scripts may use them where they state the transform
-- Avoid over-abstracting: a small static `Array` allowlist is clearer than a `Set` used once
+- Avoid over-abstracting: a fixed allowlist is a module-level `Set`, not a class or a helper module around one
 
 **Naming:**
 
@@ -101,10 +102,15 @@ Choose a structure for the property you need to control — not only for speed.
 **Encapsulation, safety, operability:**
 
 - Hide representation behind a small API (`add`/`has`, getters) so internals can change without call-site churn
-- Use `Object.create(null)` or `Map` for untrusted keys (prototype-pollution safety)
 - Use WeakMap/WeakSet when lifetime must follow the key (leak control)
 - Cap growth (max size, TTL, eviction) for long-lived Maps/Sets; unbounded collections are operability bugs
 - Pick serializable structures (`Object`/`Array`) at I/O boundaries; convert `Map`/`Set` explicitly
+
+**Collections a peer can grow** (clients, sockets, network messages):
+
+- A queue a peer can grow is never an `Array` read with `shift()`: past a few thousand elements every `shift` copies the rest, and the peer decides the length. Use an index cursor or a ring (`data-structures`)
+- Its cap (a count, bytes, a TTL) counts what holding an element costs — key, wrapper object, timer, `Map` entry — not only the payload
+- A table keyed by peer input reads with `Object.hasOwn(table, key)` or has no prototype (`{ __proto__: null }`, `Object.create(null)`), or is a `Map`. A plain literal answers `table.toString` with a function that passes a `typeof` check
 
 ## Object
 
@@ -113,41 +119,41 @@ Use for records with a known, stable shape (config, entities, options).
 ```javascript
 const user = { id: 1, name: 'Ada', active: true };
 
-// Pure dictionary (no prototype pollution via __proto__)
+// Dictionary keyed by input: no prototype, so `dict.toString` is not a key
 const dict = Object.create(null);
 dict[key] = value;
+
+// Fixed table read with a key from input
+const STATUS_TEXT = { __proto__: null, ok: 'OK', fail: 'Failed' };
+const text = STATUS_TEXT[status] ?? 'Unknown';
 ```
 
 **Hints:**
 
 - Keep a stable shape (hidden class): same keys, types, and key order; init once in a factory/constructor
 - Prefer fixed access (`obj.x`) over dynamic keys (`obj[key]`) when the schema is known
-- Do not `delete` fields; set `null` for refs, `undefined` for primitives
+- Do not `delete` record fields; set `null` for refs, `undefined` for primitives. `delete` is for dictionaries and for data where a missing key means something
+- A record is a literal or a class, never `Object.create(null)`: a null-prototype object starts in dictionary mode
 - Objects that share a property should share the full shape — avoid polymorphic property reads
-- Walk a plain data object with `for...in` in domain code; in library and hot code, take `Object.keys(obj)` and use an index loop. Never `Object.entries`
+- Walk a plain data object with `for...in` in domain code; in library and hot code, take `Object.keys(obj)` and use an index loop. `Object.entries` only outside hot paths and library `src/`
 
 ## Array
 
-Use for ordered sequences, stacks (`push`/`pop`), and small membership checks.
+Use for ordered sequences and stacks (`push`/`pop`).
 
 ```javascript
 const ids = [10, 20, 30];
 ids.push(40);
 const last = ids.pop();
-
-const ALLOWED = ['read', 'write'];
-if (ALLOWED.includes(role)) {
-  /* ... */
-}
 ```
 
 **Hints:**
 
 - Keep arrays dense and monomorphic (one element kind): SMI ints, doubles, or objects — do not mix
 - Prefer SMI-friendly integers (31-bit signed) for indexes/counters (`PACKED_SMI_ELEMENTS`); a float, `NaN`, or hole promotes the whole array
-- Avoid holey arrays (`new Array(n)`, deletes, skips); build with `push` or fill sequentially
-- Avoid `shift()` / `unshift()` in hot paths; use a queue or index cursors
-- Prefer `for` / `for...of` in hot loops; no array destructuring anywhere (read by index)
+- Avoid holey arrays (`new Array(n)` without a cited benchmark, deletes, skips); build with a literal or `push`
+- Avoid `shift()` / `unshift()` in hot paths and in any queue a peer can grow; use a ring or index cursors
+- Prefer `for` / `for...of` in hot loops; no array destructuring in library `src/` (read by index)
 
 ## Map
 
@@ -158,7 +164,7 @@ const sessions = new Map();
 sessions.set(socket, { userId: 42 });
 sessions.set('fallback', null);
 
-// insertion order; read entry[0] / entry[1] only when both are needed
+// insertion order; entry[0] / entry[1] when both are needed, keys() or values() for one
 for (const entry of sessions) {
   const key = entry[0];
   const value = entry[1];
@@ -171,6 +177,7 @@ console.log(sessions.size);
 **Hints:**
 
 - Dynamic keys on `Map` avoid dictionary-mode / shape pollution on `{}`
+- Iterate entries when both key and value are needed; `keys()` plus `get` only on a measured hot path
 - Values read on hot paths should still use stable shapes
 - `NaN` is a valid single key; object keys compare by reference
 - No `JSON.stringify` — use `Object.fromEntries(map)` only if keys are strings
@@ -180,6 +187,11 @@ console.log(sessions.size);
 Use for unique values and fast membership.
 
 ```javascript
+const ROLES = new Set(['read', 'write']); // fixed membership list, module level
+if (ROLES.has(role)) {
+  /* ... */
+}
+
 const seen = new Set();
 for (const id of incoming) {
   if (seen.has(id)) continue;

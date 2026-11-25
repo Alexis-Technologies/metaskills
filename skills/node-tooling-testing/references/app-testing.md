@@ -57,11 +57,11 @@ invites`). It never starts with `should`. Every `it` does, followed by the
 observable behaviour in the base verb. Nest `describe('when …')` for scenarios
 of one subject.
 
-| Before | After |
-| --- | --- |
-| `it('returns the decoded payload')` | `it('should return the decoded payload')` |
-| `it('throws on bad input')` | `it('should throw on bad input')` |
-| `describe('should decode')` | `describe('decode')` |
+| Block | Title before | Title after |
+| --- | --- | --- |
+| `it` | `returns the decoded payload` | `should return the decoded payload` |
+| `it` | `throws on bad input` | `should throw on bad input` |
+| `describe` | `should decode` | `decode` |
 
 One behaviour per `it`: a title that needs "and" is two tests.
 
@@ -176,7 +176,9 @@ const usersPlugin = (users: Users) => {
 const routes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { id: string } }>('/users/:id', async (request, reply) => {
     const user = await fastify.users.get(request.params.id);
-    if (user === null) return reply.code(404).send({ message: 'Not found' });
+    if (user === null) {
+      return reply.code(404).send({ error: { code: 'ALX_ERR_NOT_FOUND', message: 'Not found' } });
+    }
     return user;
   });
 };
@@ -200,7 +202,9 @@ describe('GET /users/:id', () => {
 
     // Assert
     expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ message: 'Not found' });
+    expect(response.json()).toEqual({
+      error: { code: 'ALX_ERR_NOT_FOUND', message: 'Not found' },
+    });
   });
 });
 ```

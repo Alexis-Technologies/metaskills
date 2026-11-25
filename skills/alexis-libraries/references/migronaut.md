@@ -17,6 +17,7 @@ Peers: `mongodb` >= 5, and `mongoose` >= 7 as an optional one.
 | --- | --- |
 | Backfill, rename, data fix that must run once and in order | a migration |
 | The current indexes, search indexes and validator of a collection | a declared collection and `converge` |
+| Documents rewritten to a new shape `v` beside the application | a background migration, or the app's BullMQ job (auth8, ADR-017) |
 | Existing database with a `migrate-mongo` changelog | `migronaut import` |
 | Existing database with no migration tool | `migronaut baseline` |
 
@@ -113,7 +114,7 @@ Alexis uses `v` and `rev`, so name them in every definition and helper call:
 
 ```js
 const versioning = { current: 2, min: 1, field: 'v', revisionField: 'rev' };
-const orders = { name: 'orders', versioning };
+const orders = { name: 'Orders', versioning };
 ```
 
 Converge then adds the validator rules and the `{ v: 1, _id: 1 }` index. It refuses a validator that

@@ -8,7 +8,8 @@ is correct.
 ## Playwright
 
 Specs live in the app's `e2e/` as `*.e2e.ts`, on Playwright's own runner. The naming rules still
-hold: `test.describe` names the journey, and every `test` title starts with `should`.
+hold: `test.describe` names the journey, and every `test`, which plays the part of `it`, sits in a
+`describe` and has a title that starts with `should`.
 
 ```ts
 // playwright.config.ts
@@ -74,13 +75,15 @@ empty state, as above. Keep `e2e/.auth/` in `.gitignore`.
 // e2e/auth.setup.ts
 import { expect, test as setup } from '@playwright/test';
 
-setup('should sign in the suite user', async ({ page }) => {
-  await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(process.env.E2E_USER_EMAIL ?? '');
-  await page.getByLabel('Password').fill(process.env.E2E_USER_PASSWORD ?? '');
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/dashboard/);
-  await page.context().storageState({ path: 'e2e/.auth/user.json' });
+setup.describe('suite user', () => {
+  setup('should sign in and save the session', async ({ page }) => {
+    await page.goto('/sign-in');
+    await page.getByLabel('Email').fill(process.env.E2E_USER_EMAIL ?? '');
+    await page.getByLabel('Password').fill(process.env.E2E_USER_PASSWORD ?? '');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/dashboard/);
+    await page.context().storageState({ path: 'e2e/.auth/user.json' });
+  });
 });
 ```
 

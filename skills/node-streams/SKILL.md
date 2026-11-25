@@ -285,8 +285,8 @@ const createInserter = (collection) =>
       collection.insertOne(record).then(() => callback(), callback);
     },
     writev(entries, callback) {
-      const records = new Array(entries.length);
-      for (let i = 0; i < entries.length; i++) records[i] = entries[i].chunk;
+      const records = [];
+      for (const entry of entries) records.push(entry.chunk);
       collection.insertMany(records).then(() => callback(), callback);
     },
   });
@@ -318,14 +318,16 @@ const limitBytes = (maxBytes) =>
     let size = 0;
     for await (const chunk of source) {
       size += chunk.length;
-      if (size > maxBytes) throw new DomainError('EPAYLOAD');
+      if (size > maxBytes) throw new DomainError('ALX_ERR_PAYLOAD_TOO_LARGE');
       yield chunk;
     }
   };
 
 const parseUpload = (request, payload, done) => {
   const declaredBytes = Number(request.headers['content-length'] ?? 0);
-  if (declaredBytes > MAX_UPLOAD_BYTES) return void done(new DomainError('EPAYLOAD'));
+  if (declaredBytes > MAX_UPLOAD_BYTES) {
+    return void done(new DomainError('ALX_ERR_PAYLOAD_TOO_LARGE'));
+  }
   done(null, payload);
 };
 
@@ -339,11 +341,11 @@ fastify.post('/upload', async (request, reply) => {
 });
 ```
 
-Map `EPAYLOAD` to 413 in the error handler (`error-handling`). The header check
-refuses a declared oversize before any byte is read, and the count stops a
-chunked body at the limit. Write to a temporary path and rename on success. Do
-not pass `request.signal` here: it aborts as soon as the body ends
-(`node-event-loop`).
+Map `ALX_ERR_PAYLOAD_TOO_LARGE` to 413 in the error handler (`error-handling`).
+The header check refuses a declared oversize before any byte is read, and the
+count stops a chunked body at the limit. Write to a temporary path and rename
+on success. Do not pass `request.signal` here: it aborts as soon as the body
+ends (`node-event-loop`).
 
 ### Streaming a file response
 

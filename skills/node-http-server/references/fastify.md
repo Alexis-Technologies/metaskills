@@ -17,8 +17,8 @@ The module layout is in `node-layered-architecture`.
 
 ## Entry point
 
-`fastify start -o src/main.ts` (fastify-cli) reads the exported `options` and registers the default
-export as a plugin.
+`fastify start -o dist/main.js` (fastify-cli, on the `tsc` build) reads the exported `options` and
+registers the default export as a plugin. Relative imports in the sources end in `.js` (NodeNext).
 
 ```ts
 import path from 'node:path';
@@ -82,8 +82,8 @@ directory when one exists (`process.loadEnvFile`). Validate these with the rest 
 // modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from './app/orders.service.ts';
-import { orderRoutes } from './presentation/orders.routes.ts';
+import { createOrderService, type OrderService } from './app/orders.service.js';
+import { orderRoutes } from './presentation/orders.routes.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -158,7 +158,7 @@ export default fp(
 - **Register it before the routes.** `onRoute` sees only routes added after it. A plugin in
   `plugins/` loads before the modules and `routes/`.
 - **The error handler must always call `reply.code()`.** Otherwise an error body goes out with 201
-  and the 201 schema: a loose schema let `201 {"error":{"code":"EINTERNAL"}}` through.
+  and the 201 schema: a loose schema let `201 {"error":{"code":"ALX_ERR_INTERNAL"}}` through.
 
 Checked on Fastify 5.8.5 and Node.js 24 with `tsc` 7 in strict mode: 201, 202 and 204 as declared, 200
 for a 200 schema and for several 2xx codes, 401 from a guard, 400 on invalid input, 500 or the
@@ -211,7 +211,7 @@ No `fastify-plugin` here: hooks added inside stay inside. The module registers i
 // modules/orders/presentation/orders.routes.ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
+import { CreateOrderBody, OrderReply } from './orders.schemas.js';
 
 export const orderRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook('onRequest', fastify.authenticate);
@@ -258,7 +258,7 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { orderRoutes } from '../orders.routes.ts';
+import { orderRoutes } from '../orders.routes.js';
 
 describe('POST /orders', () => {
   it('should answer 413 when the body exceeds the route limit', async () => {

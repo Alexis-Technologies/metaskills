@@ -117,7 +117,7 @@ const createIdempotent = (store, ttlMs) => async (key, operation) => {
   if (!isClaimed) {
     const entry = await store.get(`idem:${key}`);
     if (entry?.status === 'done') return entry.result;
-    throw new Error('EINPROGRESS');
+    throw new DomainError('ALX_ERR_IN_PROGRESS', { message: 'The same request is running' });
   }
   try {
     const result = await operation();

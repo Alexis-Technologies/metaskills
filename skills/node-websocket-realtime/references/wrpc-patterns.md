@@ -41,6 +41,7 @@ const rules = [{ actions: ['read', 'send'], effect: Effect.Allow, roles: ['USER'
 const roomPolicy = { resourcePolicy: { resource: 'room', version: 'default', rules } };
 const kerberos = new Kerberos([roomPolicy], [], { onError: 'deny' });
 
+// wrpc's numeric wire status: the one exception to `ALX_ERR_` codes
 const forbidden = () => {
   const error = new Error('Forbidden');
   error.code = 403;
@@ -75,30 +76,32 @@ and both were observed failing without them:
 
 ## Domain errors (`errors.js`)
 
-wrpc reads only a **numeric** `error.code`. A domain error with `code: 'EPRECONDITION'` reaches the
-client as `500 Internal Server Error`. Map it once, at the procedure boundary, with the table of
-`error-handling`:
+wrpc carries numeric codes on the wire and reads only a **numeric** `error.code`. A domain error with
+`code: 'ALX_ERR_PRECONDITION'` reaches the client as `500 Internal Server Error`. Map it once, at the
+procedure boundary, with the table of `error-handling`:
 
 ```js
 // errors.js
-const WIRE_CODES = new Map([
-  ['EVALIDATION', 400],
-  ['EAUTH', 401],
-  ['EFORBIDDEN', 403],
-  ['ENOTFOUND', 404],
-  ['ECONFLICT', 409],
-  ['EPRECONDITION', 409],
-  ['ETOOLARGE', 413],
-  ['ELIMIT', 429],
-  ['EUNAVAILABLE', 503],
-  ['ETIMEOUT', 504],
-]);
+// Any error reaches this lookup, so the table has no prototype keys
+const WIRE_CODES = {
+  __proto__: null,
+  ALX_ERR_VALIDATION: 400,
+  ALX_ERR_AUTH: 401,
+  ALX_ERR_FORBIDDEN: 403,
+  ALX_ERR_NOT_FOUND: 404,
+  ALX_ERR_CONFLICT: 409,
+  ALX_ERR_PRECONDITION: 409,
+  ALX_ERR_TOO_LARGE: 413,
+  ALX_ERR_LIMIT: 429,
+  ALX_ERR_UNAVAILABLE: 503,
+  ALX_ERR_TIMEOUT: 504,
+};
 
 const withDomainErrors = (handler) => async (context, args) => {
   try {
     return await handler(context, args);
   } catch (error) {
-    const code = WIRE_CODES.get(error.code);
+    const code = WIRE_CODES[error.code];
     if (code === undefined) throw error;
     const wire = new Error(error.message, { cause: error });
     wire.code = code;

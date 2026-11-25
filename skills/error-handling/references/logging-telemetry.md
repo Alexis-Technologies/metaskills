@@ -1,7 +1,9 @@
 # Logging, aggregation, telemetry, and release safety nets
 
 Alexis apps log with Pino, through Fastify's `request.log` inside a request.
-Libraries do not log: they take an injected logger when they need one.
+A library never logs on its own: it takes an injected logger. Without one it may
+print important messages to `console`, and it offers `logger: false`, which
+silences even those.
 
 ## Record shape
 
@@ -18,10 +20,10 @@ const record = {
   processId: 'checkout-7f3', // business process id spanning services
   userId: 'ckv9x2', // ids only, never names, emails, or tokens
   operation: 'profile.get',
-  code: 'EUNAVAILABLE',
+  code: 'ALX_ERR_UNAVAILABLE',
   errorId: '69939c49-...', // also returned to the client
   durationMs: 812,
-  err: { type: 'Error', code: 'EUNAVAILABLE', message: '...', stack: '...' },
+  err: { type: 'Error', code: 'ALX_ERR_UNAVAILABLE', message: '...', stack: '...' },
 };
 ```
 

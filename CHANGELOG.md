@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The skills agree with themselves and with the Alexis libraries. A review of the ten sibling
+repositories found 23 places where the skills contradicted each other or their own lint, and
+rules the libraries had proven that the skills lacked. The maintainer settled each one.
+
+### Changed (breaking)
+
+- **Strict comparisons, `null` included.** The lint drops `null: ignore` from `eqeqeq`, as the
+  text of `js-conventions` always said. "null or undefined" is `x === undefined || x === null`.
+- **`return void fn()` is the call-then-return, and `no-void` is off.** The skill asked for it
+  while the lint refused it.
+- **`describe` and `it` only, and every `it` title starts with `should`.** Libraries assert with
+  `node:assert/strict`.
+- **Error codes start with `ALX_ERR_`**, as Fastify's start with `FST_ERR_`: `ALX_ERR_VALIDATION`,
+  `ALX_ERR_DAL_CONFLICT`. Codes of Node and of other libraries stay as they are, and so does the
+  numeric `error.code` of a wrpc hook, which is wrpc's wire status. Every code a library throws is
+  a union in its `.d.ts` and a table in its docs.
+- **One `DomainError`.** `new DomainError(code, { message, cause, details })`, always thrown. Three
+  skills used three signatures, and one returned it.
+- **Invalid arguments and config of a library** throw the library's own class with a code, not a
+  bare `TypeError`.
+
+### Changed
+
+- **Named exceptions instead of absolute bans.** `String()` for a value that may be a symbol,
+  `delete` on dictionaries and on data whose missing key means something, `Object.entries` outside
+  hot paths and library `src/`, `Object.create(null)` for dictionaries and peer-keyed tables.
+- **Array destructuring** is banned in library `src/` only; apps and tests may use it.
+- **Line breaks of a `require` belong to oxfmt**: one module per statement.
+- **Comments say why.** The documentation of a public API is JSDoc in the handwritten `.d.ts`.
+- **`toSorted`, `toReversed` and `with` by the engines floor.** On Node 18 a fresh copy is sorted in
+  a statement of its own.
+- **Relative imports in TypeScript apps end in `.js`.**
+- **A library may print important messages to `console` when no logger is passed**, and then has
+  `logger: false` to silence them.
+- **CHANGELOG headings.** Keep a Changelog, plus `Changed (breaking)`, `Documentation`,
+  `Upgrading from X.Y` and `Tooling`. The release commit is `chore(release): X.Y.Z`, and the
+  package goes out with `pnpm publish` only.
+- **`node-data-access` follows auth8's ADR-017**: `v` and `rev` as it defines them, `rev` not on
+  every write, six actor types, and shape migrations as a BullMQ job beside migronaut.
+- **`alexis-libraries` describes the unreleased mailer 2.0** next to 1.x, and lists messenger as
+  not published.
+- **`src/` of a library** is laid out by subpath or feature, with kebab-case file names, instead
+  of "flat".
+
+### Added
+
+- **Rules the libraries proved.**
+  - Never spread a data array into arguments, and a peer-grown queue is never an `Array` with
+    `shift()`.
+  - Barrels by name, an export-parity test and a tarball smoke test.
+  - A runtime tier by package name, and CI on the exact engines floor.
+  - Observers never fail the operation they watch.
+- **The tests of an app under `src/`** may use array iteration methods: the lint exempts them.
+
+### Fixed
+
+- **Contradictions between skills.** Membership lists are a `Set`, fixed tables are literals, Map
+  iteration has one rule, `node-tooling-testing` no longer says that oxlint has no stylistic rules,
+  and the `examples.md` of `js-conventions` follows its own iteration rules.
+- **The mailer 1.x reference.** Its queue example called `createQueue`, which 1.2.1 exports as
+  `createMailQueue`, and it listed `/webhooks/<provider>` entries that first appear in 2.0.
+- **The stale ADR-017 line.** `document-conventions` said auth8 used double-underscore system
+  fields; ADR-017 names them `v` and `rev`.
+
+### Tooling
+
+- **The lint of this repository** turns off `no-void`, compares `null` strictly, and lets the tests
+  of an app under `src/` use array iteration methods.
+- **Its own tests** are `describe` and `it('should …')` with `node:assert/strict`.
+
+### Upgrading from 1.0
+
+In a library or app that copied the lint of alexiskills:
+
+1. Remove `no-void` and the `null` option of `eqeqeq`, then rewrite `fn(); return;` as
+   `return void fn()` and `== null` as strict comparisons.
+2. Rewrite flat `test()` calls as `describe` and `it('should …')`.
+3. Rename error codes to `ALX_ERR_*` in the next major, since consumers match on them.
+4. Throw the library's own error classes for invalid arguments.
+5. Give a library that prints to `console` without a logger the `logger: false` option.
+
 ## [1.0.1] - 2026-11-24
 
 A patch release: `node-config` follows `@alexify/metaschema` 3.4.1, and the guide says when

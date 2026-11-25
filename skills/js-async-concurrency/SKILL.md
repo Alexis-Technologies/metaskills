@@ -193,8 +193,8 @@ const mapLimit = async (items, limit, fn, { signal } = {}) => {
     }
   };
   const count = Math.min(limit, items.length);
-  const workers = new Array(count);
-  for (let i = 0; i < count; i++) workers[i] = worker();
+  const workers = [];
+  for (let i = 0; i < count; i++) workers.push(worker());
   await Promise.all(workers);
   return results;
 };
@@ -242,7 +242,7 @@ const withdraw = async (cuid, amount) => {
 const withdrawAtomic = async (cuid, amount) => {
   const filter = { cuid, balance: { $gte: amount } };
   const result = await accounts.updateOne(filter, { $inc: { balance: -amount } });
-  if (result.matchedCount === 0) throw new DomainError('EFUNDS');
+  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_INSUFFICIENT_FUNDS');
 };
 
 // 2. Optimistic concurrency, when the aggregate must decide
@@ -251,7 +251,7 @@ const withdrawChecked = async (cuid, amount) => {
   const balance = debit(account, amount);
   const update = { $set: { balance }, $inc: { rev: 1 } };
   const result = await accounts.updateOne({ cuid, rev: account.rev }, update);
-  if (result.matchedCount === 0) throw new DomainError('ECONFLICT');
+  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
 };
 
 // 3. In-memory state: no await between read and write

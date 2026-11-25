@@ -12,7 +12,7 @@ configuration, and metaprogramming only in infrastructure.
 
 |        | Library `@alexify/*`                             | App (`auth8`)                                    |
 | ------ | ------------------------------------------------ | ------------------------------------------------ |
-| Shape  | Flat `src/`: system classes and pure functions   | Onion + DDD, see `node-layered-architecture`     |
+| Shape  | `src/` by subpath or feature, kebab-case file names: system classes and pure functions | Onion + DDD, see `node-layered-architecture`     |
 | Domain | None; the driver and policies are injected       | Aggregates guard invariants, services orchestrate |
 | Data   | Plain records and `Map`s                         | One repository per aggregate over the native driver |
 
@@ -81,7 +81,7 @@ OOP:
 Prototype-based and mixins:
 
 - Use `Object.create(proto)` for prototype objects and a `Map` for dynamic
-  keys; avoid `__proto__` and runtime `setPrototypeOf`.
+  keys; avoid the `__proto__` accessor and runtime `setPrototypeOf`.
 - Do not use mixins (`Object.assign(target, Movable, Serializable)`): they
   change object shapes after creation (deopt), hide dependencies on `this`,
   collide silently on names, and duplicate behavior. Compose objects or
@@ -94,8 +94,9 @@ Functional:
 
 - Keep functions pure where possible: output depends only on input, no
   hidden state, no IO; isolate the impure rest at the edges.
-- Use non-mutating operations: `toSorted`, `toReversed`, `toSpliced`, `with`,
-  spread, `structuredClone` for deep copies; `Object.freeze` is shallow.
+- Use non-mutating operations: `toSorted`, `toReversed`, `toSpliced`, `with`
+  (Node 20+), spread, `structuredClone` for deep copies; `Object.freeze` is
+  shallow.
 - Without `'use strict'` a write to a frozen object fails silently (CommonJS
   libraries); in ESM and TypeScript it throws. Never rely on the throw.
 - Use `pipe`/`compose` when a flow is a linear chain of unary steps;
@@ -146,6 +147,8 @@ app each part lives in its own layer:
 ```js
 const { EventEmitter } = require('node:events');
 
+const { DomainError } = require('./errors.js');
+
 class Pool {
   #items = [];
   #free = [];
@@ -177,14 +180,6 @@ class Pool {
   }
 }
 
-class DomainError extends Error {
-  constructor(message, code) {
-    super(message);
-    this.name = 'DomainError';
-    this.code = code;
-  }
-}
-
 // Domain: the aggregate guards its invariants
 class Batch {
   #state;
@@ -199,8 +194,8 @@ class Batch {
 
   writeOff(now) {
     const { status, expires } = this.#state;
-    if (status !== 'active') throw new DomainError('Not active', 'EBATCHSTATE');
-    if (expires >= now) throw new DomainError('Not expired', 'EBATCHFRESH');
+    if (status !== 'active') throw new DomainError('ALX_ERR_BATCH_STATE', { message: 'Inactive' });
+    if (expires >= now) throw new DomainError('ALX_ERR_BATCH_FRESH', { message: 'Not expired' });
     this.#state.status = 'writtenOff';
   }
 

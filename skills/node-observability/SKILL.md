@@ -89,7 +89,7 @@ sdk.start();
 // plugins/telemetry.ts: registered first, so its onClose runs last
 import fp from 'fastify-plugin';
 
-import { sdk } from '../instrumentation.ts';
+import { sdk } from '../instrumentation.js';
 
 export default fp(
   async (fastify) => {
@@ -173,8 +173,10 @@ baseline becomes known.
 ## Library profile
 
 A library depends on no SDK. It publishes events on `node:diagnostics_channel` (named channels, or
-`tracingChannel` where every supported Node.js version has it) and takes a `logger` option. The
-app's instrumentation subscribes. A subscriber that is not there costs nothing.
+`tracingChannel` where every supported Node.js version has it) and takes a `logger` option; it
+never logs on its own. Without a logger it may print what matters to `console`, and
+`logger: false` silences even that. The app's instrumentation subscribes. A subscriber that is not
+there costs nothing.
 
 ```js
 const diagnostics = require('node:diagnostics_channel');

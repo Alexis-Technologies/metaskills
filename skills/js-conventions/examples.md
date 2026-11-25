@@ -6,7 +6,8 @@ not the product names, labels, or domain rules.
 
 ## Named steps instead of one chain
 
-A nested ternary inside a chain becomes an early return and named values.
+A nested ternary inside a chain becomes a line renderer with an early return and named values,
+and the chain becomes one loop that builds the text.
 
 Before:
 
@@ -32,30 +33,57 @@ const renderList = (items) => {
 After:
 
 ```js
+const renderLine = (entry) => {
+  const label = entry.isDir ? `${entry.name}/` : entry.name;
+  if (entry.selected) return chrome.selected(` › ${label}`);
+  const styled = entry.isDir ? chrome.dir(label) : chrome.file(label);
+  return `   ${styled}`;
+};
+
 const renderList = (items) => {
-  if (!items.length) return '';
-  const visible = items.filter((entry) => entry.ok);
-  const lines = visible.map((entry) => {
-    const label = entry.isDir ? `${entry.name}/` : entry.name;
-    if (entry.selected) return chrome.selected(` › ${label}`);
-    const styled = entry.isDir ? chrome.dir(label) : chrome.file(label);
-    return `   ${styled}`;
-  });
-  return lines.join('\n');
+  let text = '';
+  let separator = '';
+  for (const entry of items) {
+    if (!entry.ok) continue;
+    text += separator + renderLine(entry);
+    separator = '\n';
+  }
+  return text;
 };
 ```
 
-## ES module head and tail
+## Module head and tail
 
-For a project that already uses ES modules, the layout from SKILL.md:
+The layout from SKILL.md in CommonJS. One module per statement; oxfmt wraps a long binding list:
+
+```js
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { asText } = require('./text.js');
+const { padEndVisible, stripAnsi } = require('../utils.js');
+
+const MAX_WIDTH = 100;
+
+const formatValue = (value) => {
+  const source = asText(value);
+  const plain = stripAnsi(source);
+  return padEndVisible(plain, MAX_WIDTH);
+};
+
+class Session {}
+
+module.exports = { MAX_WIDTH, formatValue, Session };
+```
+
+For a project that already uses ES modules:
 
 ```js
 import fs from 'node:fs';
 import path from 'node:path';
 
 import { asText } from './text.js';
-import * as text from '../utils.js';
-const { stripAnsi, visibleWidth, wrapLine, wrapCodeLine, padEndVisible } = text;
+import { padEndVisible, stripAnsi } from '../utils.js';
 
 const MAX_WIDTH = 100;
 
@@ -98,9 +126,18 @@ const rank = (entries) => entries.sort((a, b) => a.name.localeCompare(b.name));
 ```
 
 ```js
-// GOOD: own the array you reorder
+// GOOD: own the array you reorder (engines Node 20+)
 const byName = (a, b) => a.name.localeCompare(b.name);
 const rank = (entries) => entries.toSorted(byName);
+```
+
+```js
+// GOOD on Node 18, which has no toSorted: sort a fresh copy in a statement of its own
+const rank = (entries) => {
+  const ranked = entries.slice();
+  ranked.sort(byName);
+  return ranked;
+};
 ```
 
 ## One-line signature
@@ -116,9 +153,9 @@ const canWatchRecursive = (
 ) => {
   if (platform === 'win32' || platform === 'darwin') return true;
   if (platform !== 'linux') return false;
-  const parts = `${version}`.split('.').map(Number);
-  const major = parts[0];
-  const minor = parts[1];
+  const parts = `${version}`.split('.');
+  const major = Number(parts[0]);
+  const minor = Number(parts[1]);
   return major > 19 || (major === 19 && minor >= 1);
 };
 ```
@@ -131,16 +168,16 @@ const canWatchRecursive = (platform, version) => {
   const node = version ?? process.versions.node;
   if (host === 'win32' || host === 'darwin') return true;
   if (host !== 'linux') return false;
-  const parts = `${node}`.split('.').map(Number);
-  const major = parts[0];
-  const minor = parts[1];
+  const parts = `${node}`.split('.');
+  const major = Number(parts[0]);
+  const minor = Number(parts[1]);
   return major > 19 || (major === 19 && minor >= 1);
 };
 ```
 
 ## Block body when it is not one line
 
-A wrapped expression body becomes named steps. A block that is only `return expr` is not the goal: `arrow-body-style` unwraps it.
+A wrapped expression body becomes named steps, and the suffix check becomes a loop. A block that is only `return expr` is not the goal: `arrow-body-style` unwraps it.
 
 Before:
 
@@ -158,12 +195,28 @@ After:
 ```js
 const IGNORED_SUFFIXES = ['.lock', '~', '.swp', '.swo'];
 
+const hasIgnoredSuffix = (name) => {
+  for (const suffix of IGNORED_SUFFIXES) {
+    if (name.endsWith(suffix)) return true;
+  }
+  return false;
+};
+
 const ignoredName = (name) => {
-  const suffix = IGNORED_SUFFIXES.some((item) => name.endsWith(item));
+  const suffix = hasIgnoredSuffix(name);
   const backup = name.startsWith('.#');
   const store = name === '.DS_Store';
   return suffix || backup || store;
 };
+```
+
+## Object shorthand
+
+```js
+// BAD
+const renderOptions = { width: wrapWidth, outputs: outputs, tick: tick };
+// GOOD
+const renderOptions = { width, outputs, tick };
 ```
 
 ## Named fields, then one object
@@ -294,12 +347,12 @@ const modifiedKey = (base, modText) => {
 After:
 
 ```js
-const ARROW_KEYS = ['left', 'right', 'up', 'down'];
-const EDGE_KEYS = ['home', 'end'];
+const ARROW_KEYS = new Set(['left', 'right', 'up', 'down']);
+const EDGE_KEYS = new Set(['home', 'end']);
 
 const modifiedKey = (base, modText) => {
-  const arrow = ARROW_KEYS.includes(base);
-  const end = EDGE_KEYS.includes(base);
+  const arrow = ARROW_KEYS.has(base);
+  const end = EDGE_KEYS.has(base);
   if (!arrow && !end) return base;
   const mod = parseInt(modText, 10);
   const bits = Number.isFinite(mod) ? mod - 1 : 0;
@@ -312,26 +365,11 @@ const modifiedKey = (base, modText) => {
 };
 ```
 
-## Fixed list is an array
+## Fixed membership list is a module-level Set
 
-A module-level `Set` that is never mutated is a membership list. The check is `GIT_NAMES.includes(gitName)`.
+A module-level list that is only checked for membership is a `Set`, never mutated. The check is `GIT_NAMES.has(gitName)`, and oxlint's `unicorn/prefer-set-has` flags the array form.
 
 Before:
-
-```js
-const GIT_NAMES = new Set([
-  'HEAD',
-  'packed-refs',
-  'FETCH_HEAD',
-  'ORIG_HEAD',
-  'refs',
-  'logs',
-  'rebase-merge',
-  'rebase-apply',
-]);
-```
-
-After:
 
 ```js
 const GIT_NAMES = [
@@ -344,11 +382,32 @@ const GIT_NAMES = [
   'rebase-merge',
   'rebase-apply',
 ];
+
+const isGitName = (gitName) => GIT_NAMES.includes(gitName);
 ```
 
-A `Set` or `Map` stays when the code adds and deletes entries, or when it needs uniqueness of a computed list.
+After:
+
+```js
+const GIT_NAMES = new Set([
+  'HEAD',
+  'packed-refs',
+  'FETCH_HEAD',
+  'ORIG_HEAD',
+  'refs',
+  'logs',
+  'rebase-merge',
+  'rebase-apply',
+]);
+
+const isGitName = (gitName) => GIT_NAMES.has(gitName);
+```
+
+An array stays when order or index access is the meaning; a group of single characters stays a string (`BREAK_AFTER.includes(prev)` above).
 
 ## Fixed string keys use an object
+
+The extension comes from a path, so the table has no prototype: on a plain literal `MIME_TYPE_BY_EXTENSION.constructor` is a function.
 
 Before:
 
@@ -367,6 +426,7 @@ After:
 
 ```js
 const MIME_TYPE_BY_EXTENSION = {
+  __proto__: null,
   css: 'text/css',
   html: 'text/html',
   js: 'text/javascript',
@@ -535,7 +595,7 @@ const headerScreen = (view) => {
 
 ## Call only the taken side
 
-A ternary already runs one call. Statements must keep that. Computing both moves and then keeping one would change the stored order.
+A ternary already runs one call. Statements must keep that: a function that returns from the taken branch keeps `moved` a `const`. Computing both moves and then keeping one would change the stored order.
 
 Before:
 
@@ -561,16 +621,18 @@ class IssuesPane {
 After:
 
 ```js
+const moveRow = (store, row, delta) => {
+  if (row.quote) return store.moveFeedback(row.key, delta);
+  return store.moveTask(row.task.id, delta);
+};
+
 class IssuesPane {
   moveIssue(delta) {
     if (!this.isOpen() || !delta) return;
     const row = this.rowAt(this.clampedTaskFocus());
     if (!row || row.draft) return;
     this.composer.commitCompose();
-    const store = this.ui.review.store;
-    let moved = false;
-    if (row.quote) moved = store.moveFeedback(row.key, delta);
-    else moved = store.moveTask(row.task.id, delta);
+    const moved = moveRow(this.ui.review.store, row, delta);
     if (!moved) return;
     this.composer.closeCompose();
     this.followRow(row.quote ? { quote: true, key: row.key } : row);
@@ -579,7 +641,9 @@ class IssuesPane {
 }
 ```
 
-## Use the library when the result matches
+## Reuse a dependency when the result matches
+
+In a project that already depends on `metautil`. A library with no runtime dependencies keeps its own helper.
 
 Before:
 
@@ -664,3 +728,25 @@ const readNames = (dir) => {
   return entries ? entries : [];
 };
 ```
+
+## Walking keyed data
+
+```js
+// BAD in library src/ and hot paths: Object.entries and array destructuring
+for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
+
+// GOOD: domain code, plain data object (Object.entries is also allowed here)
+for (const name in headers) res.setHeader(name, headers[name]);
+
+// GOOD: library code, dynamic keys live in a Map, both key and value needed
+for (const entry of headers) res.setHeader(entry[0], entry[1]);
+
+// GOOD: library code, plain object received from the caller
+const names = Object.keys(headers);
+for (let i = 0; i < names.length; i++) {
+  const name = names[i];
+  res.setHeader(name, headers[name]);
+}
+```
+
+`for (const name of headers.keys())` with `headers.get(name)` replaces the entry loop only on a hot path where a benchmark shows the gain.

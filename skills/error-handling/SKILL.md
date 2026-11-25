@@ -12,12 +12,21 @@ the unexpected. Shutdown mechanics live in `node-graceful-shutdown`.
 
 ## Project profile
 
-|                   | Library (`@alexify/*`)                | App                                         |
-| ----------------- | ------------------------------------- | ------------------------------------------- |
-| Error type        | `Error` with `code`, or its own class | `DomainError`, DAL errors                   |
-| Logging           | Never logs; takes an injected logger  | Pino through `request.log`, at the boundary |
-| Process handlers  | Never installs them                   | One policy in the composition root          |
-| Transport mapping | None                                  | One Fastify `setErrorHandler`               |
+|                   | Library (`@alexify/*`)                    | App                                         |
+| ----------------- | ----------------------------------------- | ------------------------------------------- |
+| Error type        | Its own class with an `ALX_ERR_` code     | `DomainError`, DAL errors                   |
+| Logging           | Takes an injected logger, `logger: false` | Pino through `request.log`, at the boundary |
+| Process handlers  | Never installs them                       | One policy in the composition root          |
+| Transport mapping | None                                      | One Fastify `setErrorHandler`               |
+
+- Invalid arguments and config of a library API throw the library's own class with a code too,
+  never a bare `TypeError`. It may extend `TypeError` or `RangeError`, so `instanceof` keeps
+  working for consumers.
+- A library never logs on its own and takes an injected logger. Without one it may print
+  important messages to `console`, and it offers `logger: false`, which silences even those.
+
+Library classes, code unions, observers and a CLI inside a library:
+[references/library-errors.md](references/library-errors.md).
 
 ## Classification
 
@@ -40,6 +49,14 @@ Decide before writing a `catch`.
 - Throw and reject only `Error` instances: only they carry `stack` and `cause`.
 - Put the machine-readable identity in `error.code`. Branch on `code`, never on
   `message` text.
+- A string `code` we create always starts with `ALX_ERR_`, as Fastify's start
+  with `FST_ERR_`: `ALX_ERR_VALIDATION`, `ALX_ERR_DAL_CONFLICT`. Codes of Node,
+  the platform and third-party libraries stay as they are (`ENOENT`,
+  `ECONNREFUSED`, `FST_ERR_*`, MongoDB `11000`).
+- Every code a library can throw is a union in its `.d.ts` and a table in its
+  docs, held by a test.
+- A numeric status is `statusCode`, never `code`. Wire protocols may carry
+  numeric codes on the wire: wrpc reads only a numeric `code`.
 - Create one class per abstraction layer (`DomainError`, `DalError`), or when an
   error needs behaviour. Do not create one empty class per case.
 - Chain, do not forward: when an error crosses a layer, create a new one in that
@@ -81,9 +98,11 @@ class DomainError extends Error {
   error handler, RPC dispatcher, queue consumer, CLI `main`. Domain and data
   layers never know HTTP status codes.
 - A known domain code becomes a status and safe message. Anything else becomes
-  500 with `EINTERNAL`, a generic message, and an `errorId` that is also logged.
-- **Map only your own error classes.** `ENOTFOUND` also comes from DNS and
-  `EAUTH` from SMTP clients, so a bare `code` lookup turns an outage into a 404.
+  500 with `ALX_ERR_INTERNAL`, a generic message, and an `errorId` that is also
+  logged.
+- **Map only your own error classes.** DNS fails with `ENOTFOUND`, SMTP clients
+  with `EAUTH`, and an `@alexify/*` library with `ALX_ERR_*` codes of its own, so
+  a bare `code` lookup turns an outage into a 404.
 - Never send `stack`, `cause`, queries, collection or field names, file paths,
   hostnames, or third-party messages to clients.
 - Return one answer for "unknown user" and "wrong password", and spend the same
@@ -103,35 +122,42 @@ import fp from 'fastify-plugin';
 import { DalError } from './dal/errors.js';
 import { DomainError } from './domain/errors.js';
 
-const HTTP_STATUS = new Map([
-  ['EVALIDATION', 400],
-  ['EAUTH', 401],
-  ['EFORBIDDEN', 403],
-  ['ENOTFOUND', 404],
-  ['DAL_NOT_FOUND', 404],
-  ['ECONFLICT', 409],
-  ['DAL_DUPLICATE_KEY', 409],
-  ['ELIMIT', 429],
-]);
+const HTTP_STATUS: Record<string, number> = {
+  ALX_ERR_VALIDATION: 400,
+  ALX_ERR_AUTH: 401,
+  ALX_ERR_FORBIDDEN: 403,
+  ALX_ERR_NOT_FOUND: 404,
+  ALX_ERR_DAL_NOT_FOUND: 404,
+  ALX_ERR_CONFLICT: 409,
+  ALX_ERR_DAL_CONFLICT: 409,
+  ALX_ERR_DAL_DUPLICATE_KEY: 409,
+  ALX_ERR_LIMIT: 429,
+  ALX_ERR_DAL_UNAVAILABLE: 503,
+  ALX_ERR_DAL_TIMEOUT: 504,
+};
 
-const SAFE_MESSAGES = new Map([
-  ['EAUTH', 'Incorrect login or password'],
-  ['DAL_NOT_FOUND', 'Not found'],
-  ['DAL_DUPLICATE_KEY', 'Already exists'],
-]);
+// DAL messages name collections, so every mapped DAL code has its own text
+const SAFE_MESSAGES: Record<string, string> = {
+  ALX_ERR_AUTH: 'Incorrect login or password',
+  ALX_ERR_DAL_NOT_FOUND: 'Not found',
+  ALX_ERR_DAL_CONFLICT: 'Changed concurrently',
+  ALX_ERR_DAL_DUPLICATE_KEY: 'Already exists',
+  ALX_ERR_DAL_UNAVAILABLE: 'Service unavailable',
+  ALX_ERR_DAL_TIMEOUT: 'Timed out',
+};
 
 const sendError = (reply, status, error) => reply.code(status).send({ error });
 
 export default fp(async (fastify) => {
   fastify.setErrorHandler((error, request, reply) => {
     if (error.validation) {
-      const failure = { code: 'EVALIDATION', message: 'Invalid input' };
+      const failure = { code: 'ALX_ERR_VALIDATION', message: 'Invalid input' };
       return sendError(reply, 400, failure);
     }
     const isOwn = error instanceof DomainError || error instanceof DalError;
-    const status = isOwn ? HTTP_STATUS.get(error.code) : undefined;
+    const status = isOwn ? HTTP_STATUS[error.code] : undefined;
     if (status !== undefined) {
-      const message = SAFE_MESSAGES.get(error.code) ?? error.message;
+      const message = SAFE_MESSAGES[error.code] ?? error.message;
       return sendError(reply, status, { code: error.code, message });
     }
     // 503 keeps load shedding visible: @fastify/under-pressure raises it with Retry-After
@@ -142,7 +168,7 @@ export default fp(async (fastify) => {
     }
     const errorId = randomUUID();
     request.log.error({ err: error, errorId }, 'unhandled error');
-    return sendError(reply, 500, { code: 'EINTERNAL', message: 'Internal error', errorId });
+    return sendError(reply, 500, { code: 'ALX_ERR_INTERNAL', message: 'Internal error', errorId });
   });
 });
 ```
@@ -167,12 +193,12 @@ const signIn = async ({ login, password }) => {
   const account = await findByLogin(login);
   const hash = account === null ? DUMMY_HASH : account.passwordHash;
   const isValid = await verifyPassword(password, hash);
-  if (account === null || !isValid) throw new DomainError('EAUTH');
+  if (account === null || !isValid) throw new DomainError('ALX_ERR_AUTH');
   return createSession(account);
 };
 ```
 
-A driver failure now reaches the client as `500 { code: 'EINTERNAL', errorId }`,
+A driver failure now reaches the client as `500 { code: 'ALX_ERR_INTERNAL', errorId }`,
 and the log holds the whole chain through `cause`.
 
 ## Async correctness
@@ -268,6 +294,8 @@ fastify-cli installs these handlers: do not add your own.
 - Strip secrets, tokens, personal data, and absolute paths before writing.
 - Logging can amplify an incident: aggregate repeats, sample, and make the level
   switchable at runtime.
+- Observers (logger, telemetry, event listeners) never fail the operation they
+  watch.
 
 Record shape, retention, telemetry cost, and release safety nets:
 [references/logging-telemetry.md](references/logging-telemetry.md).
@@ -296,7 +324,8 @@ Record shape, retention, telemetry cost, and release safety nets:
 ## Checklist
 
 - [ ] Every `catch` handles a specific `code`, wraps with `cause`, or is a boundary.
-- [ ] Errors are `Error` instances with `code`, one custom class per layer at most.
+- [ ] Errors are `Error` instances with an `ALX_ERR_` `code`, one custom class per
+      layer at most.
 - [ ] Each entry point (HTTP, RPC, WebSocket, queue, cron, CLI) has one mapping
       function, and unknown errors become 500 with an `errorId`.
 - [ ] Responses never contain stack, `cause`, queries, or paths. Auth failures are

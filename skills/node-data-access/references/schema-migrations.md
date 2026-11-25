@@ -2,8 +2,8 @@
 
 `@alexify/metaschema` is the single source of the document shape. The types, the `$jsonSchema`
 validator, the indexes and the update checks all come from it. `@alexify/migronaut` applies them.
-ADR-010 and ADR-017 still name TypeBox and the double-underscore system fields. The target is
-metaschema with `v` and `rev`.
+ADR-010 and ADR-017 still name TypeBox: the target is metaschema. The system fields are `v` and
+`rev`, as ADR-017 names them.
 
 ## The model
 
@@ -199,8 +199,16 @@ export const down = async ({ db, session }) => {
 Use expand, background migration, contract:
 
 1. **Expand.** The release reads both shapes and writes the new one. Raise `current`, keep `min`.
-2. **Background.** Register the rewrite and let it run beside the application.
+2. **Background.** Rewrite the older documents beside the application: with the BullMQ job of
+   ADR-017 section 13, or with a migronaut background migration.
 3. **Contract.** A later release raises `min`. Converge refuses while older documents remain.
+
+Both write only what a step changes, guarded by `_id`, the old `v` and the `rev` they read, so a
+document the application wrote in between is not overwritten. In auth8 follow the ADR and use the
+job. migronaut's background runner brings its own leases, checkpoints, throttle and dry run, and
+runs from its CLI (`migronaut background`).
+
+### As a migronaut background migration
 
 ```js
 // migrations/20261201120000-orders-shipping.js
@@ -220,6 +228,73 @@ export const background = {
 A declared collection already supplies the two field names. Keep them in the file anyway, so that it
 stays correct if the declaration moves. Lazy migration on read stays the exception (ADR-017 section
 13).
+
+### As a BullMQ job (ADR-017)
+
+```ts
+// jobs/shape-migration.ts, in auth8-jobs
+import { Actor, ActorType, systemActor } from '@auth8/enums';
+import { ObjectId } from 'mongodb';
+import type { AnyBulkWriteOperation, Collection, Document, UpdateFilter } from 'mongodb';
+
+export type ShapeStep = {
+  from: number;
+  to: number;
+  actor: string;
+  // Only what changes, so every other field keeps its stored BSON type.
+  migrate: (document: Document) => UpdateFilter<Document>;
+};
+
+const BATCH_SIZE = 500;
+
+export const ordersShipping: ShapeStep = {
+  from: 1,
+  to: 2,
+  actor: systemActor(ActorType.Migration, Actor.OrdersShipping),
+  migrate: (order) => ({
+    $set: { shipping: { address: order.address } },
+    $unset: { address: '' },
+  }),
+};
+
+// One batch per run: the cursor of the next batch, or null at the end of a pass.
+export const migrateBatch = async (
+  collection: Collection,
+  step: ShapeStep,
+  after: string | null,
+): Promise<string | null> => {
+  const filter: Document = { v: step.from };
+  if (after !== null) filter._id = { $gt: new ObjectId(after) };
+  const batch = await collection.find(filter).sort({ _id: 1 }).limit(BATCH_SIZE).toArray();
+  const stamp = { v: step.to, updatedAt: new Date(), updatedBy: step.actor };
+  const operations: AnyBulkWriteOperation[] = [];
+  for (const document of batch) {
+    const update = step.migrate(document);
+    const set = { ...update.$set, ...stamp };
+    const inc = { ...update.$inc, rev: 1 };
+    operations.push({
+      updateOne: {
+        filter: { _id: document._id, v: step.from, rev: document.rev },
+        update: { ...update, $set: set, $inc: inc },
+      },
+    });
+  }
+  if (operations.length > 0) await collection.bulkWrite(operations, { ordered: false });
+  return batch.length < BATCH_SIZE ? null : String(batch[batch.length - 1]._id);
+};
+```
+
+- The processor runs in `auth8-jobs` behind the job-scheduler port of ADR-013, on the jobs Redis.
+  A job holds the collection, the step and `after`, and enqueues the next batch with the returned
+  cursor under a job id of the step and cursor, so a retried job does not fork the sweep.
+- Jobs are at least once. The guarded write makes a rerun harmless.
+- `bulkWrite` throws when any write fails, a validator's 121 among them, after the others ran. Log
+  the failed operations (`writeErrors`, by index) and fix the step, rather than let the job retry
+  forever.
+- A document whose `rev` moved matches nothing and stays at `v: from`. When a pass ends, start
+  another from `after: null`. The sweep is done when a pass finds nothing at `v: from`.
+- The query runs on the `{ v: 1, _id: 1 }` index the `versioning` block creates. Pace the batches
+  with a delay or BullMQ's rate limiter, so the sweep does not starve the primary.
 
 ## Revision helpers
 

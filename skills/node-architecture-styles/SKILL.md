@@ -12,12 +12,12 @@ default is a **modular monolith in Onion + DDD layers on MongoDB**. Layer
 internals (DI, folders, Fastify wiring) are in `node-layered-architecture`;
 this skill is the map and the decision guide.
 
-|              | Library `@alexify/*`                | App (`auth8`)                                    |
-| ------------ | ----------------------------------- | ------------------------------------------------ |
-| Style        | Flat `src/`, none of the below      | Onion + DDD, modular monolith                    |
-| Domain logic | Pure functions and system classes   | Aggregates with invariants, thin services        |
-| Persistence  | Driver injected by the caller       | Native `mongodb`, own DAL, one repository per aggregate |
-| Consistency  | Caller's concern                    | Single document first, transactions across aggregates |
+|  | Library `@alexify/*` | App (`auth8`) |
+| --- | --- | --- |
+| Style | `src/` by subpath or feature, kebab-case file names, none of the below | Onion + DDD, modular monolith |
+| Domain logic | Pure functions and system classes | Aggregates with invariants, thin services |
+| Persistence | Driver injected by the caller | Native `mongodb`, own DAL, one repository per aggregate |
+| Consistency | Caller's concern | Single document first, transactions across aggregates |
 
 ## What architecture is
 
@@ -213,7 +213,7 @@ const createOrderRepository = (collection) => ({
     const { id, rev, status, lines } = order.toState();
     const update = { $set: { status, lines }, $inc: { rev: 1 } };
     const result = await collection.updateOne({ cuid: id, rev }, update);
-    if (result.matchedCount === 0) throw new DomainError('Order changed', 'ECONFLICT');
+    if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
   },
 });
 ```
@@ -228,12 +228,12 @@ No transaction: the filter on `rev` turns a concurrent change into a conflict.
 // Application: the one case for a multi-document transaction
 const createTransfer = ({ accounts, outbox, client, withTransaction, createId }) => {
   const transfer = async ({ fromId, toId, amount }) => {
-    if (fromId === toId) throw new DomainError('Same account', 'ETRANSFER');
+    if (fromId === toId) throw new DomainError('ALX_ERR_TRANSFER', { message: 'Same account' });
     const eventId = createId();
     await withTransaction(client, async (session) => {
       const from = await accounts.findById(fromId, { session });
       const to = await accounts.findById(toId, { session });
-      if (!from || !to) throw new DomainError('Account not found', 'ENOTFOUND');
+      if (!from || !to) throw new DomainError('ALX_ERR_NOT_FOUND');
       from.withdraw(amount);
       to.deposit(amount);
       await accounts.save(from, { session });

@@ -186,7 +186,7 @@ module.exports = {
 
 ```js
 // crdt.test.js
-const test = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const crdt = require('./crdt.js');
@@ -211,44 +211,56 @@ const checkLaws = (type, states) => {
   return expected;
 };
 
-test('OR-Set: concurrent add survives remove', () => {
-  const base = orSet.add(orSet.empty(), 'x', 't1');
-  const removed = orSet.remove(base, 'x');
-  const readded = orSet.add(base, 'x', 't2');
-  assert.deepEqual(checkLaws(orSet, [base, removed, readded]), ['x']);
+describe('OR-Set', () => {
+  it('should keep a concurrent add over a remove', () => {
+    const base = orSet.add(orSet.empty(), 'x', 't1');
+    const removed = orSet.remove(base, 'x');
+    const readded = orSet.add(base, 'x', 't2');
+    assert.deepEqual(checkLaws(orSet, [base, removed, readded]), ['x']);
+  });
 });
 
-test('PN-Counter: replicas converge', () => {
-  const a = pnCounter.add(pnCounter.empty(), 'a', 3);
-  const b = pnCounter.add(pnCounter.empty(), 'b', -1);
-  const c = pnCounter.add(a, 'a', 2);
-  assert.equal(checkLaws(pnCounter, [a, b, c]), 4);
+describe('PN-Counter', () => {
+  it('should converge on every replica', () => {
+    const a = pnCounter.add(pnCounter.empty(), 'a', 3);
+    const b = pnCounter.add(pnCounter.empty(), 'b', -1);
+    const c = pnCounter.add(a, 'a', 2);
+    assert.equal(checkLaws(pnCounter, [a, b, c]), 4);
+  });
 });
 
-test('2P-Set: a removal is final', () => {
-  const base = twoPhaseSet.add(twoPhaseSet.empty(), 'x');
-  const removed = twoPhaseSet.remove(base, 'x');
-  assert.deepEqual(checkLaws(twoPhaseSet, [base, removed]), []);
+describe('2P-Set', () => {
+  it('should keep a removal final', () => {
+    const base = twoPhaseSet.add(twoPhaseSet.empty(), 'x');
+    const removed = twoPhaseSet.remove(base, 'x');
+    assert.deepEqual(checkLaws(twoPhaseSet, [base, removed]), []);
+  });
 });
 
-test('a reserved replica id cannot corrupt a counter', () => {
-  const hostile = JSON.parse('{"constructor": 5, "__proto__": 7, "a": 1}');
-  const merged = crdt.gCounter.merge({ a: 2 }, hostile);
-  assert.deepEqual(merged, { a: 2 });
+describe('G-Counter', () => {
+  it('should ignore a reserved replica id', () => {
+    const hostile = JSON.parse('{"constructor": 5, "__proto__": 7, "a": 1}');
+    const merged = crdt.gCounter.merge({ a: 2 }, hostile);
+    assert.deepEqual(merged, { a: 2 });
+  });
 });
 
-test('document merge is order independent and idempotent', () => {
-  const EMPTY = { title: null, likes: { inc: {}, dec: {} } };
-  const first = { title: { value: 'A', time: 1, replica: 'r1' }, likes: increment(null, 'r1') };
-  const second = { title: { value: 'B', time: 1, replica: 'r2' }, likes: increment(null, 'r2', 2) };
-  const third = { title: null, likes: increment(first.likes, 'r1') };
-  const deltas = [first, second, third];
-  const apply = (list) => list.reduce((a, b) => mergeDocument(a, b), EMPTY);
-  const expected = apply(deltas);
-  for (const order of permutations(deltas)) assert.deepEqual(apply(order), expected);
-  assert.deepEqual(apply([...deltas, ...deltas]), expected);
-  assert.equal(expected.title.value, 'B');
-  assert.deepEqual(expected.likes.inc, { r1: 2, r2: 2 });
+describe('mergeDocument', () => {
+  it('should be order independent and idempotent', () => {
+    const EMPTY = { title: null, likes: { inc: {}, dec: {} } };
+    const titleA = { value: 'A', time: 1, replica: 'r1' };
+    const titleB = { value: 'B', time: 1, replica: 'r2' };
+    const first = { title: titleA, likes: increment(null, 'r1') };
+    const second = { title: titleB, likes: increment(null, 'r2', 2) };
+    const third = { title: null, likes: increment(first.likes, 'r1') };
+    const deltas = [first, second, third];
+    const apply = (list) => list.reduce((a, b) => mergeDocument(a, b), EMPTY);
+    const expected = apply(deltas);
+    for (const order of permutations(deltas)) assert.deepEqual(apply(order), expected);
+    assert.deepEqual(apply([...deltas, ...deltas]), expected);
+    assert.equal(expected.title.value, 'B');
+    assert.deepEqual(expected.likes.inc, { r1: 2, r2: 2 });
+  });
 });
 ```
 

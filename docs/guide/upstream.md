@@ -12,8 +12,8 @@ and it has no `upstream` remote.
 
 ## What differs
 
-- The skills use the Alexis toolchain: oxlint, oxfmt, pnpm, 100 columns, CommonJS without
-  `'use strict'`, and one-pass loops in `src/`.
+- The skills use the Alexis toolchain: oxlint, oxfmt, pnpm, 100 or 120 columns, from
+  `.oxfmtrc.json`, CommonJS without `'use strict'`, and one-pass loops in `src/`.
 - The CLI links `@alexify/metaskills` and never installs a package by itself.
 - The repository has the gates, CI and documentation of the other Alexis libraries.
 

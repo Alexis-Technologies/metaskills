@@ -61,7 +61,7 @@ export default ({ text }: { text: string }) => parseImport(text);
 - Size it from the CPU the container really gets, not the host's core count
   (`node-scaling-highload`), and leave one core for the event loop.
 - Bound the queue. When it is full, `run()` rejects at once: map that to
-  `EUNAVAILABLE` (503), never wait.
+  `ALX_ERR_UNAVAILABLE` (503), never wait.
 - Pass `request.signal` or `AbortSignal.timeout()`: a queued task is dropped,
   and a running one ends with its thread.
 - The task is structured-cloned. Send small inputs, and move large binary
@@ -202,8 +202,7 @@ parentPort.on('message', ({ id, method, args }) => {
   const handler = methods[method];
   if (!handler) {
     const error = new Error(`Unknown method: ${method}`);
-    parentPort.postMessage({ id, error });
-    return;
+    return void parentPort.postMessage({ id, error });
   }
   try {
     const result = handler(...args);

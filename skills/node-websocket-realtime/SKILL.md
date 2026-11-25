@@ -86,8 +86,9 @@ Default positions and why:
   shapes are in `references/wrpc-patterns.md`.
 - Validate with `@alexify/metaschema`: a `Schema` is a Standard Schema and goes straight into `input`
   and `output`. A failure answers `400` with `error.details.issues`. See `js-contracts-schemas`.
-- wrpc reads only a **numeric** `error.code`. A domain error with `code: 'EFORBIDDEN'` reaches the
-  client as `500`. Map domain codes at the procedure boundary, with the table in `error-handling`.
+- wrpc reads only a **numeric** `error.code`: its wire status, the exception to `ALX_ERR_` codes. A
+  domain error with `code: 'ALX_ERR_FORBIDDEN'` reaches the client as `500`. Map domain codes at the
+  procedure boundary (`error-handling`).
 - A 5xx message is replaced with the status text. Never set `expose` on an internal error.
 - Give each call a `timeout`. It rejects the caller and does not stop the handler, so watch
   `context.signal`.
@@ -287,7 +288,7 @@ client.api.chat.on('message', render); // listeners survive a reconnect
 const feed = client.api.chat.feed.subscribe({ room }, { onData: render, onError: showError });
 ```
 
-Call through `client.api` each time, because units are rebuilt on reconnect. `events.once()` does not
+Call through `client.api` each time: units are rebuilt on reconnect. `events.once()` does not
 work on a `WrpcClient`: wrap `client.on` in a promise.
 
 ## Anti-patterns

@@ -85,7 +85,7 @@ describe('workspace boundaries', () => {
   one entry for the plugin and one for the workers
   ([modules.md](modules.md)).
 
-## Library: flat `src/`
+## Library: `src/` by subpath or feature
 
 ```text
 index.js                the public entry: re-exports src/
@@ -116,7 +116,7 @@ export default fp(
 
 | Code | Structure |
 | ---- | --------- |
-| A library | Flat `src/` |
+| A library | `src/` by subpath or feature, kebab-case file names |
 | A trivial path: health check, a static list | A route calling a repository is fine; say why |
 | Any app with a business rule | One module with `domain/`, `app/`, `infra/`, `presentation/` |
 | Several contexts | One module per context; they talk through facades or domain events |

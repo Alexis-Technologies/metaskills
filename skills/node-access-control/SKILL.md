@@ -190,6 +190,7 @@ app, injected into the codec.
 ### wrpc: fail-closed authorization hook
 
 ```js
+// wrpc's numeric wire status: the one exception to `ALX_ERR_` codes
 const forbidden = () => {
   const error = new Error('Forbidden');
   error.code = 403;
@@ -249,7 +250,7 @@ const project = (record, fields) => {
 
 const assertWritable = (patch, fields) => {
   for (const key of Object.keys(patch)) {
-    if (!fields.has(key)) throw new DomainError('EFORBIDDEN', { details: { field: key } });
+    if (!fields.has(key)) throw new DomainError('ALX_ERR_FORBIDDEN', { details: { field: key } });
   }
 };
 
@@ -257,16 +258,16 @@ const updatePatient = async ({ kerberos, patients, journal, transaction }, user,
   const principal = toPrincipal(user);
   const filter = { id, tenantId: user.tenantId };
   const patient = await patients.findOne(filter);
-  if (patient === null) throw new DomainError('ENOTFOUND');
+  if (patient === null) throw new DomainError('ALX_ERR_NOT_FOUND');
   const resource = toResource(patient);
   const canUpdate = await kerberos.isAllowed({ principal, resource, action: 'update' });
-  if (!canUpdate) throw new DomainError('ENOTFOUND');
+  if (!canUpdate) throw new DomainError('ALX_ERR_NOT_FOUND');
   assertWritable(patch, await grantedFields(kerberos, principal, resource, 'write'));
   const guard = { ...filter, rev: patient.rev };
   const change = { $set: patch, $inc: { rev: 1 } };
   await transaction(async (session) => {
     const { matchedCount } = await patients.updateOne(guard, change, { session });
-    if (matchedCount === 0) throw new DomainError('ECONFLICT');
+    if (matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
     const entry = { accountId: user.id, resource: `patient:${id}`, action: 'update', patch };
     await journal.insertOne({ ...entry, createdAt: new Date() }, { session });
   });

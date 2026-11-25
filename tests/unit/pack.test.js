@@ -1,5 +1,5 @@
-const assert = require('node:assert');
-const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { describe, it } = require('node:test');
 
 const { packProblems } = require('../../scripts/check-pack.js');
 const pkg = require('../../package.json');
@@ -19,25 +19,27 @@ const FILES = [
   'skills/alpha/examples/one.js',
 ];
 
-test('the command cannot be confused with the metaskills of Metarhia', () => {
-  // pnpm and npm drop the scope of a bin name: `@alexify/metaskills` would install `metaskills`.
-  assert.deepStrictEqual(Object.keys(pkg.bin), ['alexiskills']);
-});
+describe('check-pack', () => {
+  it('should name the command so it cannot be confused with the metaskills of Metarhia', () => {
+    // pnpm and npm drop the scope of a bin name: `@alexify/metaskills` would install `metaskills`.
+    assert.deepStrictEqual(Object.keys(pkg.bin), ['alexiskills']);
+  });
 
-test('packProblems passes a complete tarball', () => {
-  assert.deepStrictEqual(packProblems(FILES, MANIFEST, SKILLS), []);
-});
+  it('should pass a complete tarball', () => {
+    assert.deepStrictEqual(packProblems(FILES, MANIFEST, SKILLS), []);
+  });
 
-test('packProblems reports a missing bin, document or skill', () => {
-  const bin = 'bin/alexiskills.js';
-  const missing = [bin, 'LICENSE', 'src/packs.json', 'skills/alpha/SKILL.md'];
-  const files = FILES.filter((file) => !missing.includes(file));
-  const problems = packProblems(files, MANIFEST, SKILLS);
-  for (const file of missing) assert.ok(problems.includes(`${file} is missing from the tarball`));
-});
+  it('should report a missing bin, document or skill', () => {
+    const bin = 'bin/alexiskills.js';
+    const missing = [bin, 'LICENSE', 'src/packs.json', 'skills/alpha/SKILL.md'];
+    const files = FILES.filter((file) => !missing.includes(file));
+    const problems = packProblems(files, MANIFEST, SKILLS);
+    for (const file of missing) assert.ok(problems.includes(`${file} is missing from the tarball`));
+  });
 
-test('packProblems reports a file outside the allowlist', () => {
-  const extra = ['tests/unit/link.test.js', 'scripts/size.js', 'evals/run.js', 'CLAUDE.md'];
-  const problems = packProblems(FILES.concat(extra), MANIFEST, SKILLS);
-  for (const file of extra) assert.ok(problems.includes(`${file} should not be in the tarball`));
+  it('should report a file outside the allowlist', () => {
+    const extra = ['tests/unit/link.test.js', 'scripts/size.js', 'evals/run.js', 'CLAUDE.md'];
+    const problems = packProblems(FILES.concat(extra), MANIFEST, SKILLS);
+    for (const file of extra) assert.ok(problems.includes(`${file} should not be in the tarball`));
+  });
 });

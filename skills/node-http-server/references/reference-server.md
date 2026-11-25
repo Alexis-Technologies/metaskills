@@ -27,10 +27,12 @@ const logger = { error: (error) => void process.stderr.write(`${error.stack}\n`)
 // Application layer: plain async functions, no req/res, no HTTP codes
 
 class DomainError extends Error {
-  constructor(code, { message = code } = {}) {
-    super(message);
+  constructor(code, options = {}) {
+    const { message = code, cause, details = null } = options;
+    super(message, { cause });
     this.name = 'DomainError';
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -40,13 +42,13 @@ const api = new Map();
 
 api.set('user/get', async ({ id }) => {
   const user = users.get(id);
-  if (!user) throw new DomainError('ENOTFOUND', { message: 'User not found' });
+  if (!user) throw new DomainError('ALX_ERR_NOT_FOUND', { message: 'User not found' });
   return user;
 });
 
 api.set('user/create', async ({ name }) => {
   if (typeof name !== 'string') {
-    throw new DomainError('EVALIDATION', { message: 'Name expected' });
+    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Name expected' });
   }
   const user = { id: `${users.size + 1}`, name };
   users.set(user.id, user);
@@ -55,22 +57,24 @@ api.set('user/create', async ({ name }) => {
 
 // Transport layer: HTTP adapter over the application
 
-const STATUS_BY_CODE = new Map([
-  ['EVALIDATION', 400],
-  ['EAUTH', 401],
-  ['ENOTFOUND', 404],
-]);
+const STATUS_BY_CODE = {
+  ALX_ERR_VALIDATION: 400,
+  ALX_ERR_AUTH: 401,
+  ALX_ERR_NOT_FOUND: 404,
+};
 
-const MIME_TYPES = new Map([
-  ['html', 'text/html; charset=utf-8'],
-  ['js', 'text/javascript; charset=utf-8'],
-  ['css', 'text/css; charset=utf-8'],
-  ['json', 'application/json'],
-  ['txt', 'text/plain; charset=utf-8'],
-  ['png', 'image/png'],
-  ['svg', 'image/svg+xml'],
-  ['ico', 'image/x-icon'],
-]);
+// Keyed by the extension of a requested path, so no prototype keys
+const MIME_TYPES = {
+  __proto__: null,
+  html: 'text/html; charset=utf-8',
+  js: 'text/javascript; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  json: 'application/json',
+  txt: 'text/plain; charset=utf-8',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+};
 const DEFAULT_MIME = 'application/octet-stream';
 
 class HttpError extends Error {
@@ -116,7 +120,7 @@ const parseJson = (buffer) => {
 const sendJson = (res, statusCode, data) => {
   const body = JSON.stringify(data);
   res.writeHead(statusCode, {
-    'Content-Type': MIME_TYPES.get('json'),
+    'Content-Type': MIME_TYPES.json,
     'Content-Length': Buffer.byteLength(body),
   });
   res.end(body);
@@ -166,7 +170,7 @@ const serveStatic = async (req, res, pathname) => {
   }
   const extension = path.extname(filePath).slice(1).toLowerCase();
   res.writeHead(200, {
-    'Content-Type': MIME_TYPES.get(extension) ?? DEFAULT_MIME,
+    'Content-Type': MIME_TYPES[extension] ?? DEFAULT_MIME,
     'Content-Length': stat.size,
     'Cache-Control': 'no-cache',
     'X-Content-Type-Options': 'nosniff',
@@ -181,7 +185,8 @@ const serveStatic = async (req, res, pathname) => {
 
 const toStatus = (error) => {
   if (error instanceof HttpError) return error.statusCode;
-  return STATUS_BY_CODE.get(error.code) ?? 500;
+  if (error instanceof DomainError) return STATUS_BY_CODE[error.code] ?? 500;
+  return 500;
 };
 
 const handleError = (res, error) => {

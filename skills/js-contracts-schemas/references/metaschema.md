@@ -2,7 +2,7 @@
 
 The subset a contract author needs. The full library API and its gotchas are in `alexis-libraries`
 (references/metaschema.md), and how a definition reaches each consumer is in
-[validation-chain.md](validation-chain.md). Behaviour below ran on metaschema 3.4.0 and Node.js 24.
+[validation-chain.md](validation-chain.md). Behaviour below was checked on metaschema 3.4.1 and Node.js 24.
 
 ## Fields
 
@@ -29,7 +29,7 @@ The subset a contract author needs. The full library API and its gotchas are in 
 | `data: 'json'` | any JSON object or array |
 | `when: { type: 'string', parse: (text) => new Date(text) }` | a decoder, run by `parse` |
 
-Scalars: `string`, `number`, `integer`, `boolean`, `bigint`, `date`, `bytes`, `null`, `any`,
+Scalars: `string`, `number`, `integer`, `bigint`, `boolean`, `date`, `bytes`, `null`, `any`,
 `unknown`, `json`.
 
 `check()` rejects unknown keys and returns `{ valid, issues, errors }`. An issue is
@@ -104,7 +104,7 @@ A declarative contract next to a method is a useful default for any transport:
 | `parameters` | schema of the named-arguments object |
 | `validate` | imperative preconditions, throw to reject |
 | `returns` | schema of the result (postcondition) |
-| `errors` | `{ CODE: 'message' }` for `return new DomainError('CODE')` |
+| `errors` | `{ CODE: 'message' }` for a thrown `DomainError` with that code |
 | `access` | who may call it. Enforce with `@alexify/kerberos` |
 | `timeout` | ms. The call rejects, the work is not cancelled |
 | `queue` | `{ concurrency, size, timeout }` per-method limit |

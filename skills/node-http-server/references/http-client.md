@@ -13,7 +13,7 @@ One `Pool` per upstream origin, created by an Infrastructure plugin and closed i
 import fp from 'fastify-plugin';
 import { Pool } from 'undici';
 
-import { createBillingClient, type BillingClient } from '#shared/infra/billing.client.ts';
+import { createBillingClient, type BillingClient } from '#shared/infra/billing.client.js';
 
 declare module 'fastify' {
   interface FastifyInstance {

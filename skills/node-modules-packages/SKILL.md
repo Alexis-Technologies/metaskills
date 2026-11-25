@@ -54,15 +54,14 @@ Module system
 - **Library**: CommonJS with a handwritten `.d.ts`. **App**: ESM and
   TypeScript with `module: NodeNext`. Do not mix both styles inside one
   package without a reason.
-- A new package sets `"type"` explicitly. Existing `@alexify` libraries omit
-  it, which means CommonJS; leave them as they are. A typeless package with
-  ESM syntax in `.js` is parsed twice and warns
+- Set `"type"` explicitly; a library's `"commonjs"` is what Deno needs
+  (mailer, messenger and syncom set it). A typeless package with ESM syntax
+  in `.js` is parsed twice and warns
   (`MODULE_TYPELESS_PACKAGE_JSON`). Use `.cjs` / `.mjs` only for exceptions.
 - Write relative specifiers with the extension (`./lib/user.js`). ESM
   requires it. In CommonJS it removes extension and directory probing and
-  makes the target obvious. Never rely on implicit `index.js`. An app that
-  imports `./logger.ts` needs `allowImportingTsExtensions`, and
-  `rewriteRelativeImportExtensions` in its build config.
+  makes the target obvious. Never rely on implicit `index.js`. An app writes
+  `./logger.js` for `logger.ts`, as NodeNext resolves it.
 - In ESM use `import.meta.dirname`, `import.meta.filename`,
   `import.meta.url` and `createRequire(import.meta.url)` instead of the
   CommonJS locals. Load JSON with `fs` or `createRequire`, not ad hoc globals.
@@ -107,13 +106,16 @@ Packages
   instead of `../../..` chains or bundler-only path aliases.
 - Set `engines.node` to the range you test in CI, and keep `files` an
   explicit allowlist of what ships. Release preparation is in `npm-publish`.
+- Barrels, export parity, type tests, size budgets, peers:
+  [references/packaging.md](references/packaging.md).
 
 Dependencies
 
-- **Library**: no runtime dependencies. A driver or host library is injected
-  or declared in `peerDependencies`. **App**: dependencies are allowed, and
-  the stack choices of its ADRs stand (Fastify, undici, Pino, BullMQ,
-  `env-schema`).
+- **Library**: no runtime dependencies. Hosts are injected and checked by
+  shape, never by `instanceof` against an imported class. A peer only for a
+  package it requires lazily or takes from the caller, optional when most
+  consumers skip it. **App**: dependencies are allowed, and the stack choices
+  of its ADRs stand (Fastify, undici, Pino, BullMQ, `env-schema`).
 - Before adding a package, check for a built-in: `fetch`,
   `crypto.randomUUID()`, `crypto.scrypt`, `AbortSignal.timeout()`,
   `structuredClone`, `util.parseArgs`, `util.styleText`, `fs.cp`, `fs.glob`,
@@ -128,10 +130,8 @@ Dependencies
   lockfile in a separate commit from dependency upgrades, so reviews stay
   readable.
 - Use caret ranges (`^1.2.3`) in libraries, let the lockfile pin applications.
-  Use `peerDependencies` for plugins and host libraries the consumer must
-  provide (mark optional ones in `peerDependenciesMeta`). Put `overrides` in
-  `pnpm-workspace.yaml` to force a patched transitive version, and remove it
-  once upstream catches up.
+  Put `overrides` in `pnpm-workspace.yaml` to force a patched transitive
+  version, and remove it once upstream catches up.
 - Run `pnpm audit` and `pnpm outdated` regularly. pnpm does not run dependency
   install scripts unless the package is listed in `allowBuilds` in
   `pnpm-workspace.yaml`; approve each one deliberately. `minimumReleaseAge`
@@ -220,7 +220,7 @@ export default main;
 // src/plugins/users.ts
 import fp from 'fastify-plugin';
 
-import { createUsers } from '../domain/users.ts';
+import { createUsers } from '../domain/users.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -268,6 +268,7 @@ implementation, the shape `npm-publish` audits.
 {
   "name": "@alexify/example",
   "version": "1.0.0",
+  "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",
   "exports": {
@@ -374,7 +375,7 @@ codes are in [references/module-internals.md](references/module-internals.md).
 
 - [ ] Every built-in import uses the `node:` prefix.
 - [ ] Library is CommonJS with a `.d.ts`; app is ESM and TypeScript (NodeNext).
-- [ ] A new `package.json` sets `"type"`; `.cjs`/`.mjs` only for exceptions.
+- [ ] `package.json` sets `"type"`; `.cjs`/`.mjs` only for exceptions.
 - [ ] Relative specifiers include file extensions; no implicit `index.js`.
 - [ ] No ESM file uses `require`, `module`, `__dirname`, `__filename` directly.
 - [ ] Library entry points have no top-level `await`.
@@ -388,7 +389,7 @@ codes are in [references/module-internals.md](references/module-internals.md).
 - [ ] `pnpm-lock.yaml` committed; CI uses `--frozen-lockfile`; `pnpm audit`
       reviewed; every `allowBuilds` entry is deliberate.
 - [ ] Every dependency is justified; built-in alternatives checked.
-- [ ] Plugins/host libraries are `peerDependencies`, not `dependencies`.
+- [ ] Hosts injected and checked by shape; peers lazy or caller-given.
 
 Related skills: `node-tooling-testing`, `node-async-context`, `node-security`,
 `node-layered-architecture`, `npm-publish`, `js-conventions`

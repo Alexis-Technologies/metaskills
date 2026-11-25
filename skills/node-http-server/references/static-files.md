@@ -67,11 +67,12 @@ const ROOT = path.resolve(__dirname, 'static');
 const MAX_CACHED_BYTES = 1024 * 1024;
 const COMPRESSIBLE = new Set(['html', 'js', 'css', 'json', 'svg', 'txt']);
 const DEFAULT_MIME = 'application/octet-stream';
-const MIME_TYPES = new Map([
-  ['html', 'text/html; charset=utf-8'],
-  ['txt', 'text/plain; charset=utf-8'],
-  ['bin', DEFAULT_MIME],
-]);
+const MIME_TYPES = {
+  __proto__: null,
+  html: 'text/html; charset=utf-8',
+  txt: 'text/plain; charset=utf-8',
+  bin: DEFAULT_MIME,
+};
 const RANGE = /^bytes=(\d*)-(\d*)$/;
 
 const gzip = promisify(zlib.gzip);
@@ -82,11 +83,11 @@ const toKey = (filePath) => filePath.slice(ROOT.length).split(path.sep).join('/'
 const cacheFile = async (filePath) => {
   const stat = await fsp.stat(filePath);
   const extension = path.extname(filePath).slice(1).toLowerCase();
-  const mime = MIME_TYPES.get(extension) ?? DEFAULT_MIME;
+  const mime = MIME_TYPES[extension] ?? DEFAULT_MIME;
   const key = toKey(filePath);
   if (stat.size > MAX_CACHED_BYTES) {
-    files.set(key, { filePath, size: stat.size, mime, data: null, gzipped: null, etag: '' });
-    return;
+    const file = { filePath, size: stat.size, mime, data: null, gzipped: null, etag: '' };
+    return void files.set(key, file);
   }
   const data = await fsp.readFile(filePath);
   const hash = crypto.createHash('sha1').update(data).digest('base64url');
