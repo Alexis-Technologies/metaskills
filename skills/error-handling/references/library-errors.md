@@ -7,7 +7,7 @@ that keep watching code from breaking the code it watches.
 
 ```js
 class ConfigError extends TypeError {
-  constructor(message, options) {
+  constructor(message, options = {}) {
     super(message, options);
     this.name = 'ConfigError';
     this.code = 'ALX_ERR_CONFIG';
@@ -15,7 +15,7 @@ class ConfigError extends TypeError {
 }
 
 class ClosedError extends Error {
-  constructor(message = 'Client is closed', options) {
+  constructor(message = 'Client is closed', options = {}) {
     super(message, options);
     this.name = 'ClosedError';
     this.code = 'ALX_ERR_CLOSED';
@@ -43,6 +43,9 @@ const createClient = (options = {}) => {
   `TypeError`. Extending `TypeError` or `RangeError` keeps `instanceof` working
   for consumers that already check it.
 - One class per failure the caller handles differently, not one per message.
+- The constructor is `(message, options = {})`, as `Error`'s: `cause` and the
+  class's own fields arrive in `options`, and a class with a fixed code sets it
+  itself.
 - Every string `code` starts with `ALX_ERR_`. Codes of Node and of other
   packages pass through unchanged, wrapped with `{ cause }` when they cross the
   library's API.

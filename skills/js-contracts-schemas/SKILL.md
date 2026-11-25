@@ -4,7 +4,8 @@ description: Contracts at trust boundaries with one metaschema source for Fastif
 ---
 
 <!-- Adapted for the Alexis stack: @alexify/metaschema is the single source, and this skill owns the
-     Validation chain other skills refer to. Examples ran on Node.js 24 with metaschema 3.4. -->
+     Validation chain other skills refer to. Examples ran on Node.js 24 with metaschema 3.4; their
+     metaschema calls ran on 4.0. -->
 
 # Contracts and Schemas in JS/TS
 
@@ -48,7 +49,7 @@ Any one alone is not.
   why in the code.
 - Extensions live in the adapter of a validator (`addKeyword`, `refine`) and never change the source.
 - `validate` functions are not exported to JSON Schema, `decimals` needs `multipleOfPrecision` in
-  Ajv, and `bigint` has no JSON form.
+  Ajv, and `bigint` throws `ALX_ERR_UNREPRESENTABLE`.
 
 Traps, each reproduced by running the chain on shared fixtures:
 
@@ -75,8 +76,7 @@ The code for every consumer is in [references/validation-chain.md](references/va
 - Validate on the client for fast feedback and **always re-validate on the server**: other clients do
   not run your checks.
 - Inside the domain, do not repeat checks the boundary guarantees. Business code that receives
-  `{ name, age, address }` past a contract trusts its types. Defensive `typeof` chains in domain code
-  hide the real contract.
+  `{ name, age, address }` past a contract trusts its types.
 - Reject unknown fields, which metaschema does by default, or strip them explicitly with
   `parse(value, { unknown: 'strip' })`. Never spread raw input into DB writes (mass assignment of
   `isAdmin`, `ownerId`).
@@ -102,7 +102,8 @@ The code for every consumer is in [references/validation-chain.md](references/va
 
 ### Preconditions, postconditions, invariants
 
-- Preconditions: schema and `validate` at the entry point. Fail fast with all reasons, before any I/O.
+- Preconditions: schema and `validate` at the entry point. Fail fast, before any I/O, with
+  `maxErrors` set: by default every issue is collected.
 - Postconditions: check `returns` in development, tests and staging. Keep them in production at
   external boundaries (results sent to clients or partners). Disable checks only between trusted
   in-process parts after they ran with checks on.
@@ -174,7 +175,7 @@ export const metaschemaCompiler: FastifySchemaCompiler<Schema> = ({ schema, http
   const coerce = TEXT_PARTS.has(part);
   const unknown = part === 'headers' ? 'ignore' : 'reject';
   return (data) => {
-    const { valid, value, issues } = schema.parse(data, { coerce, unknown });
+    const { valid, value, issues } = schema.parse(data, { coerce, unknown, maxErrors: 20 });
     return valid ? { value } : { error: toError(issues) };
   };
 };
@@ -198,8 +199,9 @@ const { Schema } = require('@alexify/metaschema');
 const { DomainError } = require('./domain-error.js'); // the class of `error-handling`
 
 class ContractError extends Error {
-  constructor(code, reasons) {
-    super(`Contract violation: ${reasons.join('; ')}`);
+  constructor(message, options = {}) {
+    const { code = 'ALX_ERR_CONTRACT', reasons = [] } = options;
+    super(message, options);
     this.name = 'ContractError';
     this.code = code;
     this.reasons = reasons;
@@ -220,15 +222,16 @@ const toReasons = (issues) => {
 const parseContract = (schema, value, code) => {
   if (!schema) return value;
   const result = schema.parse(value);
-  if (!result.valid) throw new ContractError(code, toReasons(result.issues));
-  return result.value;
+  if (result.valid) return result.value;
+  const reasons = toReasons(result.issues);
+  throw new ContractError(`Contract violation: ${reasons.join('; ')}`, { code, reasons });
 };
 
 const rethrow = (error, errors) => {
   const isDeclared = error instanceof DomainError && Object.hasOwn(errors, error.code);
   if (!isDeclared) throw error;
   const { code, details } = error;
-  throw new DomainError(code, { message: errors[code], cause: error, details });
+  throw new DomainError(errors[code], { code, cause: error, details });
 };
 
 const withContract = (definition) => {
@@ -252,8 +255,7 @@ const withContract = (definition) => {
 ```
 
 `withContract({ parameters: { a: 'number' }, method })({ a: 1, isAdmin: true })` rejects with
-`ALX_ERR_VALIDATION` and the reason `has unexpected keys: isAdmin`. Match on the code, since the text of a
-reason can change between versions.
+`ALX_ERR_VALIDATION` and the reason `has unexpected keys: isAdmin`.
 
 ### Value object enforces invariants
 
@@ -342,7 +344,6 @@ library API of metaschema and its gotchas are owned by `alexis-libraries`.
   forwarded.
 - A hand-written `interface`, or a Zod, TypeBox or Ajv schema, beside the definition of the same DTO.
 - Fastify's default Ajv with a generated schema, trusted to reject unknown keys.
-- Schemas compiled or derived per request.
 - `assert` and `typeof` chains repeated in every function instead of one contract at the boundary, or
   the opposite: no runtime checks at all.
 - Accepting unknown fields and spreading input into a DAL write.

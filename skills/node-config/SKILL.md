@@ -4,7 +4,7 @@ description: 12-factor Node.js config with one validated env schema, secrets and
 ---
 
 <!-- Alexis stack. Written from the auth8 configuration skill and ADR-006 (12-factor, env-schema,
-     no NODE_ENV), with @alexify/metaschema as the schema source. Checked with metaschema 3.4.1. -->
+     no NODE_ENV), with @alexify/metaschema as the schema source. Checked with metaschema 4.0.0. -->
 
 # Node.js configuration
 
@@ -95,8 +95,8 @@ export type Config = InferOutput<typeof definition>;
 export class ConfigError extends Error {
   readonly code = 'ALX_ERR_CONFIG';
 
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options: ErrorOptions = {}) {
+    super(message, options);
     this.name = 'ConfigError';
   }
 }
@@ -117,9 +117,9 @@ export const loadConfig = (env: Record<string, string | undefined>): Readonly<Co
 - Nothing is read at import time, so a test imports the module without an environment.
 - `InferOutput` is the parsed side: a key with a default is required in `Config`. `as const` keeps
   the enum literals in the type.
-- **Require `@alexify/metaschema` `^3.4.1`.** Before it, a struct whose first key started with a
-  capital letter read that key as a kind and dropped it, so an environment schema lost its first
-  variable, and `Infer` left upper-case keys out of the type.
+- **Require `@alexify/metaschema` `^4.0.0`** (3.4.1 at least). Before 3.4.1, a struct whose first
+  key started with a capital letter read that key as a kind and dropped it, so an environment
+  schema lost its first variable, and `Infer` left upper-case keys out of the type.
 
 ### The plugin
 
@@ -187,8 +187,8 @@ coerces types and applies defaults. Check that it knows every `format` the schem
 const DEFAULTS = Object.freeze({ timeoutMs: 5000, retries: 2 });
 
 class OptionsError extends RangeError {
-  constructor(message) {
-    super(message);
+  constructor(message, options = {}) {
+    super(message, options);
     this.name = 'OptionsError';
     this.code = 'ALX_ERR_OPTIONS';
   }

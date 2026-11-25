@@ -1,8 +1,8 @@
-# Metaschema for contract authors (`@alexify/metaschema` 3.4)
+# Metaschema for contract authors (`@alexify/metaschema` 4.0)
 
 The subset a contract author needs. The full library API and its gotchas are in `alexis-libraries`
 (references/metaschema.md), and how a definition reaches each consumer is in
-[validation-chain.md](validation-chain.md). Behaviour below was checked on metaschema 3.4.1 and Node.js 24.
+[validation-chain.md](validation-chain.md). Behaviour below was checked on metaschema 4.0.0 and Node.js 24.
 
 ## Fields
 
@@ -16,7 +16,7 @@ The subset a contract author needs. The full library API and its gotchas are in 
 | `price: { type: 'number', decimals: 2 }` | at most two decimals |
 | `email: { type: 'string', format: 'email', length: { max: 254 } }` | a format, after `register()` of `/formats` |
 | `code: { type: 'string', pattern: /^[A-Z]{3}$/, length: 3 }` | pattern. Always give it a `length.max` |
-| `age: { type: 'number', validate: (value) => ... }` | custom rule: return `true`, or an error text |
+| `age: { type: 'number', validate: (value) => ... }` | custom rule: `true`, `null` or nothing when valid; `false`, an error text or `{ code, message }` when not |
 | `role: { enum: ['admin', 'user'] }` | enumeration |
 | `role: { enum: ['admin', 'user'], default: 'user' }` | `parse` fills it in, `check` still requires it |
 | `tags: { array: 'string' }` | array of strings |
@@ -33,7 +33,8 @@ Scalars: `string`, `number`, `integer`, `bigint`, `boolean`, `date`, `bytes`, `n
 `unknown`, `json`.
 
 `check()` rejects unknown keys and returns `{ valid, issues, errors }`. An issue is
-`{ code, path, message, params }`, with `path` an array of keys. Match on `code`:
+`{ code, path, message, params }`, with `path` an array of keys. Match on `code`. There is no limit
+on the issues by default, so a boundary passes `maxErrors`:
 
 ```js
 const { Schema } = require('@alexify/metaschema');
@@ -45,13 +46,15 @@ const SignUp = Schema.from({
   role: { enum: ['admin', 'user'] },
 });
 
-const { valid, issues } = SignUp.check({ login: 'al', role: 'user', isAdmin: true });
+const input = { login: 'al', role: 'user', isAdmin: true };
+const { valid, issues } = SignUp.check(input, { maxErrors: 20 });
 // valid: false
 // issue codes, in order: 'length' (login), 'required' (password), 'unexpected' (isAdmin)
 ```
 
 A definition whose first key names a type reads as that type, not a struct: `{ set: 'string', name:
-'string' }` is a `Set`. Start such a struct with `Struct: {}`.
+'string' }` is a `Set`. Start such a struct with `Struct: {}`, and so every branch of a union with
+`discriminator: 'type'`, whose first key `type` would read as the long form of a field.
 
 ## A model for stored documents
 
@@ -79,7 +82,9 @@ const Account = model.entities.get('Account');
   the database.
 - `unique: true` and `index: true` mark a field, and a named key with `{ unique: [...] }` or
   `{ index: [...] }` declares a compound index. `indexesOf(model)` reads them all.
-- A reference is an id string in the program and an ObjectId in the database.
+- A reference to a stored kind is an id string in the program and an ObjectId in the database. A
+  reference to a memory kind (`Struct`) is the embedded record. `embed: true` on the field, or
+  `{ references: 'embed' }` or `'id'` of a check, overrides it.
 
 ## Bodies derived from the entity
 
@@ -92,7 +97,8 @@ const AccountView = pick(Account, ['accountId', 'login'], { name: 'AccountView' 
 ```
 
 Derive once at startup, never in a handler. `partial` is shallow and drops defaults, so a patch does
-not overwrite stored values.
+not overwrite stored values. `keys`, `defaults: true` and `deep: true` change that
+(`alexis-libraries`).
 
 ## API method contract
 

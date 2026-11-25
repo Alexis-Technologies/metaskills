@@ -2,7 +2,8 @@
 
 One `@alexify/metaschema` definition, every consumer generated from it. The code below ran on
 Node.js 24 with metaschema 3.4.0, Fastify 5.8, Ajv 8.20, TypeBox 0.34, `@fastify/swagger` 9.7,
-wrpc 2.2.0, the mongodb 7.3 driver and vee-validate 4.15.
+wrpc 2.2.0, the mongodb 7.3 driver and vee-validate 4.15. Its metaschema calls ran again on 4.0.0,
+which changed the codes metaschema throws and nothing a consumer reads.
 
 ## The shared contract
 
@@ -29,8 +30,9 @@ export type SignUpInput = InferSchema<typeof SignUp>;
 export const AccountView = pick(SignUp, ['login', 'role'], { name: 'AccountView' });
 ```
 
-`format` and `coerce` work only after their `register()`: a missing one throws `ERR_INVALID_RULE`
-when the schema is built, or `ERR_NOT_REGISTERED` on the first coercing `parse`.
+`format` and `coerce` work only after their `register()`: a missing one throws
+`ALX_ERR_INVALID_RULE` when the schema is built, or `ALX_ERR_NOT_REGISTERED` on the first coercing
+`parse`.
 
 ## What was checked
 
@@ -75,7 +77,7 @@ export const metaschemaCompiler: FastifySchemaCompiler<Schema> = ({ schema, http
   const coerce = TEXT_PARTS.has(part);
   const unknown = part === 'headers' ? 'ignore' : 'reject';
   return (data) => {
-    const { valid, value, issues } = schema.parse(data, { coerce, unknown });
+    const { valid, value, issues } = schema.parse(data, { coerce, unknown, maxErrors: 20 });
     return valid ? { value } : { error: toError(issues) };
   };
 };
@@ -90,6 +92,8 @@ app.post('/signup', { schema: { body: SignUp } }, async (request) => createAccou
 ```
 
 - The handler receives the parsed value, with defaults applied.
+- `maxErrors` bounds the work and the answer: without it, 200,000 wrong items give 200,000
+  issues. `length.max` on an array bounds it too, and the async validators that start at once.
 - Query, path and header values are text, so those parts coerce. A body never does.
 - Headers carry keys no schema lists, so unknown keys are ignored there and rejected elsewhere.
 - A `Schema` that reaches the default compiler fails loudly at `ready()`. A compiler is per
@@ -224,7 +228,9 @@ A `Schema` is a Standard Schema, so it goes straight into `input` and `output`:
 const signUp = procedure({ access: 'public', input: SignUp, handler: createAccount });
 ```
 
-A failure answers code 400 with `error.details.issues`. Defaults reach the handler.
+A failure answers code 400 with `error.details.issues`. Defaults reach the handler. An `exception`
+issue, from a `validate` that threw, carries the thrown text (a driver's error) as its message: map
+it to 500 or a generic text at the boundary.
 
 ## Frontend
 
@@ -275,6 +281,6 @@ key is optional and may be `null`. Use `Infer` for request types.
 | --- | --- |
 | `validate` functions | not exported: `check` and `parse` still apply them |
 | `decimals` | `multipleOf`, needs `multipleOfPrecision` in Ajv |
-| `bigint` | `ERR_UNREPRESENTABLE`, except `long` for the mongodb target |
+| `bigint` | `ALX_ERR_UNREPRESENTABLE` (`unrepresentable: 'any'` renders `{}`), `long` for the mongodb target |
 | A key with a `default` | stays in `required` |
 | `length` | counts UTF-16 units unless `unicode: true` |

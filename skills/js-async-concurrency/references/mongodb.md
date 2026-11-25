@@ -20,7 +20,7 @@ is one document: then the first two rows cover most of the code.
 const reserveSeat = async (events, cuid) => {
   const filter = { cuid, seatsLeft: { $gt: 0 } };
   const result = await events.updateOne(filter, { $inc: { seatsLeft: -1 } });
-  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_SOLD_OUT');
+  if (result.matchedCount === 0) throw new DomainError('Sold out', { code: 'ALX_ERR_SOLD_OUT' });
 };
 ```
 
@@ -40,11 +40,13 @@ const isConflict = (error) => error.code === 'ALX_ERR_CONFLICT';
 
 const withdrawOnce = async (accounts, cuid, amount) => {
   const account = await accounts.findOne({ cuid });
-  if (account === null) throw new DomainError('ALX_ERR_NOT_FOUND');
+  if (account === null) throw new DomainError('Account not found', { code: 'ALX_ERR_NOT_FOUND' });
   const balance = debit(account, amount);
   const update = { $set: { balance }, $inc: { rev: 1 } };
   const result = await accounts.updateOne({ cuid, rev: account.rev }, update);
-  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
+  if (result.matchedCount === 0) {
+    throw new DomainError('Account changed', { code: 'ALX_ERR_CONFLICT' });
+  }
   return balance;
 };
 
@@ -54,7 +56,7 @@ const withdraw = async (accounts, cuid, amount) => {
     return await retry(attempt, { attempts: 5, delayMs: 20, isRetryable: isConflict });
   } catch (error) {
     if (!(error instanceof AggregateError)) throw error;
-    throw new DomainError('ALX_ERR_CONFLICT', { cause: error });
+    throw new DomainError('Account changed', { code: 'ALX_ERR_CONFLICT', cause: error });
   }
 };
 ```

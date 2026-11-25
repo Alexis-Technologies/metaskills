@@ -170,72 +170,72 @@ export const hasTransactionLabel = (error: unknown): boolean => {
 // A labelled error passes through unchanged: the driver retries only a MongoError with its label.
 export const toDalError = (error: unknown): unknown => {
   if (!(error instanceof MongoError) || hasTransactionLabel(error)) return error;
-  const options = { cause: error };
+  const cause = error;
   if (error.code === DUPLICATE_KEY) {
     const { keyPattern } = error as MongoError & { keyPattern?: Record<string, unknown> };
-    return new DuplicateKeyError(Object.keys(keyPattern ?? {}), options);
+    return new DuplicateKeyError('Duplicate key', { fields: Object.keys(keyPattern ?? {}), cause });
   }
   if (error.code === DOCUMENT_VALIDATION) {
-    return new DalError('Document rejected by the validator', 'ALX_ERR_DAL_VALIDATION', options);
+    return new DalError('Document rejected', { code: 'ALX_ERR_DAL_VALIDATION', cause });
   }
   const isTimeout = error.code === MAX_TIME_EXPIRED || error.name === 'MongoOperationTimeoutError';
-  if (isTimeout) return new DalError('Database timeout', 'ALX_ERR_DAL_TIMEOUT', options);
+  if (isTimeout) return new DalError('Database timeout', { code: 'ALX_ERR_DAL_TIMEOUT', cause });
   if (UNAVAILABLE.has(error.name)) {
-    return new DalError('Database unavailable', 'ALX_ERR_DAL_UNAVAILABLE', options);
+    return new DalError('Database unavailable', { code: 'ALX_ERR_DAL_UNAVAILABLE', cause });
   }
-  return new DalError('Database operation failed', 'ALX_ERR_DAL', options);
+  return new DalError('Database operation failed', { cause });
 };
+
+type DalErrorOptions = ErrorOptions & { code?: string };
 
 export class DalError extends Error {
   readonly code: string;
 
-  constructor(message: string, code = 'ALX_ERR_DAL', options?: ErrorOptions) {
+  constructor(message: string, options: DalErrorOptions = {}) {
+    const { code = 'ALX_ERR_DAL' } = options;
     super(message, options);
     this.name = new.target.name;
     this.code = code;
   }
 }
 
+// A subclass keeps the signature and fixes its code with a field
 export class DuplicateKeyError extends DalError {
+  override readonly code = 'ALX_ERR_DAL_DUPLICATE_KEY';
   readonly fields: string[];
 
-  constructor(fields: string[], options?: ErrorOptions) {
-    super('Duplicate key', 'ALX_ERR_DAL_DUPLICATE_KEY', options);
+  constructor(message: string, options: ErrorOptions & { fields?: string[] } = {}) {
+    const { fields = [] } = options;
+    super(message, options);
     this.fields = fields;
   }
 }
 
 export class DocumentNotFoundError extends DalError {
-  constructor(collection: string) {
-    super(`Document not found in ${collection}`, 'ALX_ERR_DAL_NOT_FOUND');
-  }
+  override readonly code = 'ALX_ERR_DAL_NOT_FOUND';
 }
 
 export class ConcurrentUpdateError extends DalError {
-  constructor(collection: string) {
-    super(`Concurrent update in ${collection}`, 'ALX_ERR_DAL_CONFLICT');
-  }
+  override readonly code = 'ALX_ERR_DAL_CONFLICT';
 }
 
 export class InvalidQueryError extends DalError {
-  constructor(message: string) {
-    super(message, 'ALX_ERR_DAL_INVALID_QUERY');
-  }
+  override readonly code = 'ALX_ERR_DAL_INVALID_QUERY';
 }
 
 export class DocumentValidationError extends DalError {
+  override readonly code = 'ALX_ERR_DAL_VALIDATION';
   readonly issues: unknown;
 
-  constructor(issues: unknown) {
-    super('Document does not match its schema', 'ALX_ERR_DAL_VALIDATION');
+  constructor(message: string, options: ErrorOptions & { issues?: unknown } = {}) {
+    const { issues = null } = options;
+    super(message, options);
     this.issues = issues;
   }
 }
 
 export class TransactionError extends DalError {
-  constructor(options?: ErrorOptions) {
-    super('Transaction failed after retries', 'ALX_ERR_DAL_TRANSACTION', options);
-  }
+  override readonly code = 'ALX_ERR_DAL_TRANSACTION';
 }
 ```
 
@@ -262,7 +262,8 @@ export const withTransaction = async <R>(
   try {
     return await session.withTransaction(work, { timeoutMS });
   } catch (error) {
-    throw hasTransactionLabel(error) ? new TransactionError({ cause: error }) : toDalError(error);
+    if (!hasTransactionLabel(error)) throw toDalError(error);
+    throw new TransactionError('Transaction failed after retries', { cause: error });
   } finally {
     await session.endSession();
   }
@@ -286,7 +287,7 @@ const result = await collection.updateOne(
   { $set: { status, updatedAt: now, updatedBy: actor }, $inc: { rev: 1 } },
   { session },
 );
-if (result.matchedCount === 0) throw new ConcurrentUpdateError('Orders');
+if (result.matchedCount === 0) throw new ConcurrentUpdateError('Concurrent update in Orders');
 ```
 
 - Check `matchedCount`, not `modifiedCount`.

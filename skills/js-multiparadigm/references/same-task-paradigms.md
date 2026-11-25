@@ -46,7 +46,7 @@ const createPoint = (x, y) => {
   const errors = validatePoint(x, y);
   if (errors.length > 0) {
     const cause = new AggregateError(errors, 'Validation');
-    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Bad coordinates', cause });
+    throw new DomainError('Bad coordinates', { code: 'ALX_ERR_VALIDATION', cause });
   }
   return { x, y };
 };

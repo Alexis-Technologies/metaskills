@@ -184,7 +184,7 @@ Before:
 ```js
 const IGNORED_SUFFIXES = ['.lock', '~', '.swp', '.swo'];
 
-const ignoredName = (name) =>
+const isIgnoredName = (name) =>
   IGNORED_SUFFIXES.some((suffix) => name.endsWith(suffix)) ||
   name.startsWith('.#') ||
   name === '.DS_Store';
@@ -202,11 +202,11 @@ const hasIgnoredSuffix = (name) => {
   return false;
 };
 
-const ignoredName = (name) => {
-  const suffix = hasIgnoredSuffix(name);
-  const backup = name.startsWith('.#');
-  const store = name === '.DS_Store';
-  return suffix || backup || store;
+const isIgnoredName = (name) => {
+  const hasSuffix = hasIgnoredSuffix(name);
+  const isBackup = name.startsWith('.#');
+  const isStore = name === '.DS_Store';
+  return hasSuffix || isBackup || isStore;
 };
 ```
 
@@ -329,17 +329,17 @@ Before:
 
 ```js
 const modifiedKey = (base, modText) => {
-  const arrow =
+  const isArrow =
     base === 'left' || base === 'right' || base === 'up' || base === 'down';
-  const end = base === 'home' || base === 'end';
-  if (!arrow && !end) return base;
+  const isEdge = base === 'home' || base === 'end';
+  if (!isArrow && !isEdge) return base;
   const mod = parseInt(modText, 10);
   const bits = Number.isFinite(mod) ? mod - 1 : 0;
-  const ctrl = (bits & 4) !== 0;
-  const shift = (bits & 1) !== 0;
-  if (ctrl && shift && arrow) return `ctrl-shift-${base}`;
-  if (ctrl && arrow) return `ctrl-${base}`;
-  if (shift) return `shift-${base}`;
+  const hasCtrl = (bits & 4) !== 0;
+  const hasShift = (bits & 1) !== 0;
+  if (hasCtrl && hasShift && isArrow) return `ctrl-shift-${base}`;
+  if (hasCtrl && isArrow) return `ctrl-${base}`;
+  if (hasShift) return `shift-${base}`;
   return base;
 };
 ```
@@ -351,16 +351,16 @@ const ARROW_KEYS = new Set(['left', 'right', 'up', 'down']);
 const EDGE_KEYS = new Set(['home', 'end']);
 
 const modifiedKey = (base, modText) => {
-  const arrow = ARROW_KEYS.has(base);
-  const end = EDGE_KEYS.has(base);
-  if (!arrow && !end) return base;
+  const isArrow = ARROW_KEYS.has(base);
+  const isEdge = EDGE_KEYS.has(base);
+  if (!isArrow && !isEdge) return base;
   const mod = parseInt(modText, 10);
   const bits = Number.isFinite(mod) ? mod - 1 : 0;
-  const ctrl = (bits & 4) !== 0;
-  const shift = (bits & 1) !== 0;
-  if (ctrl && shift && arrow) return `ctrl-shift-${base}`;
-  if (ctrl && arrow) return `ctrl-${base}`;
-  if (shift) return `shift-${base}`;
+  const hasCtrl = (bits & 4) !== 0;
+  const hasShift = (bits & 1) !== 0;
+  if (hasCtrl && hasShift && isArrow) return `ctrl-shift-${base}`;
+  if (hasCtrl && isArrow) return `ctrl-${base}`;
+  if (hasShift) return `shift-${base}`;
   return base;
 };
 ```
@@ -557,18 +557,18 @@ After:
 
 ```js
 const agentsScreen = (view) => {
-  const live = view.agentView;
-  return live ? 'agents log' : 'agents';
+  const isLive = view.agentView;
+  return isLive ? 'agents log' : 'agents';
 };
 
 const commitsScreen = (view) => {
-  const full = view.commitView === 'full';
-  return full ? 'commits full' : 'commits brief';
+  const isFull = view.commitView === 'full';
+  return isFull ? 'commits full' : 'commits brief';
 };
 
 const filesScreen = (view) => {
-  const tasks = isTasksEntry(selectedFile(view));
-  return tasks ? REPO_TASKS_LABEL : '';
+  const isTasks = isTasksEntry(selectedFile(view));
+  return isTasks ? REPO_TASKS_LABEL : '';
 };
 
 const paneScreen = (view) => view.pane;
@@ -588,8 +588,8 @@ const HEADER_SCREEN = {
 const headerScreen = (view) => {
   const pick = HEADER_SCREEN[view.pane];
   if (pick) return pick(view);
-  const tasks = isTaskView(view);
-  return tasks ? REPO_TASKS_LABEL : '';
+  const isTasks = isTaskView(view);
+  return isTasks ? REPO_TASKS_LABEL : '';
 };
 ```
 

@@ -161,8 +161,6 @@ knowledge is for system code: streams, semaphores, promise libraries.
   `TimeoutOverflowWarning`; schedule long jobs with a scheduler or re-arm.
 - Use `timeout.refresh()` to restart idle/debounce timers instead of
   clearing and creating new ones.
-- `timers.enroll()` / `timers.active()` are removed in Node 24; use normal
-  timers.
 - API table and recipes: [references/timers.md](references/timers.md).
 
 ### State across `await`
@@ -250,7 +248,9 @@ fastify.post('/report', async (request, reply) => {
   try {
     return await loadReport(request.body, signal);
   } catch (error) {
-    if (deadline.aborted) throw new DomainError('ALX_ERR_TIMEOUT', { cause: error });
+    if (deadline.aborted) {
+      throw new DomainError('Report timed out', { code: 'ALX_ERR_TIMEOUT', cause: error });
+    }
     if (signal.aborted) return undefined; // the client left, nobody reads the answer
     throw error;
   }

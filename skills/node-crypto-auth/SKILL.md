@@ -259,7 +259,7 @@ const createAuth = ({ accounts, sessions, passwords }) => {
       await sessions.create(token, { accountId: account.id, ip });
       return { token };
     }
-    throw new DomainError('ALX_ERR_AUTH');
+    throw new DomainError('Wrong credentials', { code: 'ALX_ERR_AUTH' });
   };
 
   return { signin };

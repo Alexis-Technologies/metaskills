@@ -1,6 +1,6 @@
 // Invalid input is not a bug: callers branch on `code`, and `instanceof TypeError` still holds
 class ValueError extends TypeError {
-  constructor(message, options) {
+  constructor(message, options = {}) {
     super(message, options);
     this.name = 'ValueError';
     this.code = 'ALX_ERR_INVALID_VALUE';

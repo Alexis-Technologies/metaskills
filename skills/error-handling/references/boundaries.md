@@ -96,8 +96,8 @@ const toWire = (error, requestId) => ({
 });
 
 const throwFromWire = (wire, service) => {
-  const message = `${service}: ${wire.message}`;
-  throw new DomainError(wire.code, { message, details: wire.details });
+  const { code, details } = wire;
+  throw new DomainError(`${service}: ${wire.message}`, { code, details });
 };
 ```
 

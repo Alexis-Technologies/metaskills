@@ -213,7 +213,9 @@ const createOrderRepository = (collection) => ({
     const { id, rev, status, lines } = order.toState();
     const update = { $set: { status, lines }, $inc: { rev: 1 } };
     const result = await collection.updateOne({ cuid: id, rev }, update);
-    if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
+    if (result.matchedCount === 0) {
+      throw new DomainError('Order changed', { code: 'ALX_ERR_CONFLICT' });
+    }
   },
 });
 ```
@@ -228,12 +230,12 @@ No transaction: the filter on `rev` turns a concurrent change into a conflict.
 // Application: the one case for a multi-document transaction
 const createTransfer = ({ accounts, outbox, client, withTransaction, createId }) => {
   const transfer = async ({ fromId, toId, amount }) => {
-    if (fromId === toId) throw new DomainError('ALX_ERR_TRANSFER', { message: 'Same account' });
+    if (fromId === toId) throw new DomainError('Same account', { code: 'ALX_ERR_TRANSFER' });
     const eventId = createId();
     await withTransaction(client, async (session) => {
       const from = await accounts.findById(fromId, { session });
       const to = await accounts.findById(toId, { session });
-      if (!from || !to) throw new DomainError('ALX_ERR_NOT_FOUND');
+      if (!from || !to) throw new DomainError('Account not found', { code: 'ALX_ERR_NOT_FOUND' });
       from.withdraw(amount);
       to.deposit(amount);
       await accounts.save(from, { session });

@@ -146,6 +146,7 @@ Check these fields are correct:
 - `"types"` — points to the `.d.ts` file when the package has one
 - `"files"` — the explicit allowlist includes everything that ships and nothing else
 - `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
+- `"scripts"` — no `release` or `publish` script that bumps, tags or publishes: the steps of this skill are the release, and `prepublishOnly` gates `pnpm publish`. Remove one you find (metaschema dropped its `release` in 4.0)
 - `"dependencies"` — absent unless the project's `CLAUDE.md` allows them
 - `"keywords"` — no typos, relevant terms
 - `"license"`, `"repository"`, `"homepage"`, `"bugs"`, `"publishConfig"` (`access: public`) — valid

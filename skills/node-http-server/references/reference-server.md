@@ -27,9 +27,9 @@ const logger = { error: (error) => void process.stderr.write(`${error.stack}\n`)
 // Application layer: plain async functions, no req/res, no HTTP codes
 
 class DomainError extends Error {
-  constructor(code, options = {}) {
-    const { message = code, cause, details = null } = options;
-    super(message, { cause });
+  constructor(message, options = {}) {
+    const { code = 'ALX_ERR_DOMAIN', details = null } = options;
+    super(message, options);
     this.name = 'DomainError';
     this.code = code;
     this.details = details;
@@ -42,13 +42,13 @@ const api = new Map();
 
 api.set('user/get', async ({ id }) => {
   const user = users.get(id);
-  if (!user) throw new DomainError('ALX_ERR_NOT_FOUND', { message: 'User not found' });
+  if (!user) throw new DomainError('User not found', { code: 'ALX_ERR_NOT_FOUND' });
   return user;
 });
 
 api.set('user/create', async ({ name }) => {
   if (typeof name !== 'string') {
-    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Name expected' });
+    throw new DomainError('Name expected', { code: 'ALX_ERR_VALIDATION' });
   }
   const user = { id: `${users.size + 1}`, name };
   users.set(user.id, user);
@@ -78,8 +78,10 @@ const MIME_TYPES = {
 const DEFAULT_MIME = 'application/octet-stream';
 
 class HttpError extends Error {
-  constructor(statusCode, message = http.STATUS_CODES[statusCode]) {
-    super(message);
+  constructor(message, options = {}) {
+    const { statusCode = 500 } = options;
+    super(message, options);
+    this.name = 'HttpError';
     this.statusCode = statusCode;
   }
 }
@@ -93,12 +95,12 @@ const parseUrl = (url) => {
 
 const receiveBody = async (req, limitBytes) => {
   const declared = Number(req.headers['content-length']);
-  if (declared > limitBytes) throw new HttpError(413);
+  if (declared > limitBytes) throw new HttpError('Payload Too Large', { statusCode: 413 });
   const chunks = [];
   let sizeBytes = 0;
   for await (const chunk of req) {
     sizeBytes += chunk.length;
-    if (sizeBytes > limitBytes) throw new HttpError(413);
+    if (sizeBytes > limitBytes) throw new HttpError('Payload Too Large', { statusCode: 413 });
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
@@ -110,10 +112,10 @@ const parseJson = (buffer) => {
   try {
     value = JSON.parse(buffer.toString());
   } catch {
-    throw new HttpError(400, 'Invalid JSON');
+    throw new HttpError('Invalid JSON', { statusCode: 400 });
   }
   const isRecord = typeof value === 'object' && value !== null && !Array.isArray(value);
-  if (!isRecord) throw new HttpError(400, 'JSON object expected');
+  if (!isRecord) throw new HttpError('JSON object expected', { statusCode: 400 });
   return value;
 };
 
@@ -128,8 +130,10 @@ const sendJson = (res, statusCode, data) => {
 
 const serveApi = async (req, res, name, params) => {
   const method = api.get(name);
-  if (!method) throw new HttpError(404);
-  if (req.method !== 'POST' && req.method !== 'GET') throw new HttpError(405);
+  if (!method) throw new HttpError('Not Found', { statusCode: 404 });
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    throw new HttpError('Method Not Allowed', { statusCode: 405 });
+  }
   const body = await receiveBody(req, MAX_BODY_BYTES);
   const args = { ...Object.fromEntries(params), ...parseJson(body) };
   const result = await method(args);
@@ -151,15 +155,17 @@ const resolveStatic = (pathname) => {
 };
 
 const serveStatic = async (req, res, pathname) => {
-  if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405);
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    throw new HttpError('Method Not Allowed', { statusCode: 405 });
+  }
   const filePath = resolveStatic(pathname);
-  if (!filePath) throw new HttpError(404);
+  if (!filePath) throw new HttpError('Not Found', { statusCode: 404 });
   const handle = await fsp.open(filePath).catch(() => null);
-  if (!handle) throw new HttpError(404);
+  if (!handle) throw new HttpError('Not Found', { statusCode: 404 });
   const stat = await handle.stat();
   if (!stat.isFile()) {
     await handle.close();
-    throw new HttpError(404);
+    throw new HttpError('Not Found', { statusCode: 404 });
   }
   const mtime = Math.trunc(stat.mtimeMs).toString(16);
   const etag = `W/"${stat.size.toString(16)}-${mtime}"`;

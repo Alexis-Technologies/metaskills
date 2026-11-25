@@ -135,7 +135,7 @@ const ID_PATTERN = /^[a-z0-9]{8,32}$/;
 
 const getUser = async ({ id }, { users }) => {
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) {
-    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Invalid id' });
+    throw new DomainError('Invalid id', { code: 'ALX_ERR_VALIDATION' });
   }
   return users.findById(id);
 };
