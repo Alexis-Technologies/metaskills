@@ -735,18 +735,39 @@ const readNames = (dir) => {
 // BAD in library src/ and hot paths: Object.entries and array destructuring
 for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
 
-// GOOD: domain code, plain data object (Object.entries is also allowed here)
+// GOOD: domain code, or library code over a small literal or JSON object it built
 for (const name in headers) res.setHeader(name, headers[name]);
 
 // GOOD: library code, dynamic keys live in a Map, both key and value needed
 for (const entry of headers) res.setHeader(entry[0], entry[1]);
 
-// GOOD: library code, plain object received from the caller
+// GOOD: library code, a plain object of unknown origin, or a large dictionary
 const names = Object.keys(headers);
 for (let i = 0; i < names.length; i++) {
   const name = names[i];
   res.setHeader(name, headers[name]);
 }
+```
+
+A loop that replaces `every` on an array from the options keeps its holes skipped:
+
+```js
+// BAD: options.protocols.every(isName) accepted [, 'json']; this loop rejects it
+const allNames = (list) => {
+  for (let i = 0; i < list.length; i++) {
+    if (!isName(list[i])) return false;
+  }
+  return true;
+};
+
+// GOOD: a hole is skipped, as every skipped it
+const allNames = (list) => {
+  for (let i = 0; i < list.length; i++) {
+    if (!(i in list)) continue;
+    if (!isName(list[i])) return false;
+  }
+  return true;
+};
 ```
 
 `for (const name of headers.keys())` with `headers.get(name)` replaces the entry loop only on a hot path where a benchmark shows the gain.

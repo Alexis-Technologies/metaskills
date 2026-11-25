@@ -56,7 +56,8 @@ up to four hidden classes before it becomes megamorphic. In hot paths, use
 
 ## Arrays
 
-- Arrays have one element kind and no holes. Element kinds tend to generalize
+- Arrays the code builds have one element kind and no holes (an array the caller passes may
+  have holes: see Iteration costs). Element kinds tend to generalize
   (integer -> double -> any, packed -> holey), so do not rely on them narrowing
   again. Build with a literal, `push`, or `Array.from({ length }, fn)`.
   Preallocate with `new Array(n)` only in the cases of Safety and performance:
@@ -89,6 +90,7 @@ const decodeChunk = (chunk) => {
 
 ## Functions and closures
 
+- Small result objects that do not leave an inlined function (`{ text, end }` from a span reader) are removed by escape analysis and cost no allocation. `try` / `catch` does not deoptimize: place it where the error handling belongs
 - Keep hot functions small: TurboFan inlines by bytecode size (460 bytes per callee, 920 cumulative
   per call site). Move error formatting, logging, and rare branches into separate functions
 - Closures created in one scope share one context object. If any of them references a large value,
@@ -131,9 +133,23 @@ const decodeChunk = (chunk) => {
 Use the iteration rules in [SKILL.md](SKILL.md) as defaults, then benchmark the
 current target runtime when iteration matters:
 
-- Prefer `for i` for array iteration in library code, system code, and hot paths
-- Use `for...of` for arrays and other iterables in domain code and non-hot paths
-- Use `for...in` for plain objects in domain code. In library code and hot paths, use `Object.keys` with an indexed loop
+- Prefer `for i` for array iteration in library code, system code, and hot paths: over 100
+  numbers it ran 37 ms to the 56 ms of `for...of` (`v8-facts.md`)
+- `for...of` over arrays and other iterables is allowed in every layer; a hot path keeps the
+  loop its benchmark picks
+- `for...in` over a plain object, a literal or JSON with own, enumerable, string keys, is
+  allowed in every layer. On a small object V8 walks it from the enum cache and beats
+  `Object.keys` with an index loop; on a large dictionary-mode object (JSON with many keys,
+  `Object.create(null)`, an object after `delete`) `Object.keys` wins. wrpc's
+  `bench/object-walk.js` on Node.js 24.14: 7 headers, `for...in` 9.9 M ops/s against 6.8 M;
+  1,000 rooms, 22,000 against 29,000
+- Never `for...in` over an array (string indices, holes skipped), a class instance or an object
+  of unknown origin (inherited enumerable keys walk too): use `Object.keys`, or `Object.hasOwn`
+  per key
+- Holes: `every`, `some`, `forEach`, `filter`, `map`, `reduce` and `flatMap` skip them; `find`,
+  `findIndex`, `for...of` and an index loop read a hole as `undefined`. A loop that replaces a
+  skipping method on an array the caller passes keeps that behaviour with
+  `if (!(i in list)) continue;`, so a sparse array in options is accepted as before
 - Avoid `.forEach`; it is usually the slowest direct array traversal. Use a
   loop for side effects or state changes
 - Outside `src/`, a pure `.reduce` is fine for reductions; current engines optimize it well
