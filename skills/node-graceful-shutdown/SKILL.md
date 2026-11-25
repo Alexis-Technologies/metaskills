@@ -228,9 +228,9 @@ example 2 s, 20 s, 25 s and 30 s. Under `fastify start` the chain is drain timeo
 // main.ts
 import pino from 'pino';
 
-import { buildApp } from './app.js';
-import { config } from './config.js';
-import { createShutdown } from './shutdown.js';
+import { buildApp } from './app.ts';
+import { config } from './config.ts';
+import { createShutdown } from './shutdown.ts';
 
 const logger = pino({ level: config.LOG_LEVEL });
 const app = await buildApp({ loggerInstance: logger });

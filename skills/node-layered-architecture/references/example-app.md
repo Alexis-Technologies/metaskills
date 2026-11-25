@@ -2,8 +2,9 @@
 
 A small app in the App profile with one module, `accounts`: ESM, TypeScript with
 erasable syntax, Fastify, the native `mongodb` driver. Every file below
-type-checks with `tsc` under NodeNext, the build in `dist/` runs on Node.js 24,
-and the tests run under Vitest with DI fakes.
+type-checks with `tsc` under NodeNext. Node.js 24 runs the sources in development
+(type stripping) and the build in `dist/` in production, and the tests run under
+Vitest with DI fakes.
 The layout and the naming rules are in [modules.md](modules.md).
 
 ```text
@@ -27,23 +28,29 @@ Inside the module dependencies point inward: `presentation -> app -> domain`, an
 
 ## Project files
 
-Relative imports end in `.js`, as NodeNext requires. `package.json` maps the
-import aliases: the `source` condition points `tsc` and Vitest at the
-TypeScript, and Node.js gets the build in `dist/`:
+Relative imports end in `.ts`: Node.js runs the sources as written, and the
+build rewrites them to `.js`. `package.json` maps the import aliases, written
+without an extension: the `source` condition points Node.js in development,
+`tsc` and Vitest at the TypeScript, and the default is the build in `dist/`:
 
 ```json
 {
   "type": "module",
   "imports": {
     "#app": { "source": "./src/app.ts", "default": "./dist/app.js" },
-    "#shared/*": { "source": "./src/shared/*", "default": "./dist/shared/*" },
+    "#shared/*": { "source": "./src/shared/*.ts", "default": "./dist/shared/*.js" },
     "#modules/*": { "source": "./src/modules/*/index.ts", "default": "./dist/modules/*/index.js" }
+  },
+  "scripts": {
+    "dev": "node --conditions=source --watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js"
   }
 }
 ```
 
 `tsconfig.json` checks everything, `tsconfig.build.json` emits `dist/` without
-the tests:
+the tests and rewrites the `.ts` specifiers:
 
 ```json
 {
@@ -54,6 +61,7 @@ the tests:
     "customConditions": ["source"],
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
@@ -64,7 +72,12 @@ the tests:
 ```json
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": false, "rootDir": "src", "outDir": "dist" },
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "rewriteRelativeImportExtensions": true
+  },
   "exclude": ["src/**/tests/**"]
 }
 ```
@@ -134,7 +147,7 @@ export const isAllowed = (access: unknown, session: Session | null) => {
 // src/shared/infra/session-store.ts
 import { randomBytes } from 'node:crypto';
 
-import type { Session, SessionStore } from '#shared/app/access.js';
+import type { Session, SessionStore } from '#shared/app/access';
 
 export const createSessionStore = (): SessionStore => {
   const sessions = new Map<string, Session>();
@@ -181,9 +194,9 @@ export type AccountState = {
 
 ```ts
 // src/modules/accounts/domain/credentials.ts
-import { DomainError } from '#shared/domain/domain-error.js';
+import { DomainError } from '#shared/domain/domain-error';
 
-import { LOGIN, PASSWORD_MIN_LENGTH } from './accounts.constants.js';
+import { LOGIN, PASSWORD_MIN_LENGTH } from './accounts.constants.ts';
 
 export const normalizeLogin = (login: string) => {
   const value = login.trim().toLowerCase();
@@ -199,10 +212,10 @@ export const checkPassword = (password: string) => {
 
 ```ts
 // src/modules/accounts/domain/account.ts
-import { DomainError } from '#shared/domain/domain-error.js';
+import { DomainError } from '#shared/domain/domain-error';
 
-import type { AccountState } from './accounts.types.js';
-import { normalizeLogin } from './credentials.js';
+import type { AccountState } from './accounts.types.ts';
+import { normalizeLogin } from './credentials.ts';
 
 export class Account {
   #state: AccountState;
@@ -244,7 +257,7 @@ export class Account {
 
 ```ts
 // src/modules/accounts/domain/accounts.repository.ts
-import type { Account } from './account.js';
+import type { Account } from './account.ts';
 
 export interface AccountsRepository {
   findByLogin(login: string): Promise<Account | null>;
@@ -272,10 +285,10 @@ export interface Logger {
 
 ```ts
 // src/modules/accounts/app/accounts.types.ts
-import type { SessionStore } from '#shared/app/access.js';
+import type { SessionStore } from '#shared/app/access';
 
-import type { AccountsRepository } from '../domain/accounts.repository.js';
-import type { Logger, PasswordHasher } from './accounts.ports.js';
+import type { AccountsRepository } from '../domain/accounts.repository.ts';
+import type { Logger, PasswordHasher } from './accounts.ports.ts';
 
 export type AccountsDeps = {
   repository: AccountsRepository;
@@ -295,12 +308,12 @@ responsibility:
 
 ```ts
 // src/modules/accounts/app/accounts.service.ts
-import type { Session } from '#shared/app/access.js';
-import { DomainError } from '#shared/domain/domain-error.js';
+import type { Session } from '#shared/app/access';
+import { DomainError } from '#shared/domain/domain-error';
 
-import { Account } from '../domain/account.js';
-import { checkPassword, normalizeLogin } from '../domain/credentials.js';
-import type { AccountsDeps, Credentials } from './accounts.types.js';
+import { Account } from '../domain/account.ts';
+import { checkPassword, normalizeLogin } from '../domain/credentials.ts';
+import type { AccountsDeps, Credentials } from './accounts.types.ts';
 
 export const createAccountsService = (deps: AccountsDeps) => {
   const { repository, hasher, sessions, logger, createId, dummyHash } = deps;
@@ -361,7 +374,7 @@ export type AccountDocument = {
 // src/modules/accounts/infra/accounts.collection.ts
 import type { Db } from 'mongodb';
 
-import type { AccountDocument } from './accounts.types.js';
+import type { AccountDocument } from './accounts.types.ts';
 
 export const ACCOUNTS = 'accounts';
 
@@ -376,11 +389,11 @@ export const openAccounts = async (db: Pick<Db, 'collection'>) => {
 // src/modules/accounts/infra/accounts.repository.ts
 import type { Collection } from 'mongodb';
 
-import { DomainError } from '#shared/domain/domain-error.js';
+import { DomainError } from '#shared/domain/domain-error';
 
-import { Account } from '../domain/account.js';
-import type { AccountsRepository } from '../domain/accounts.repository.js';
-import type { AccountDocument } from './accounts.types.js';
+import { Account } from '../domain/account.ts';
+import type { AccountsRepository } from '../domain/accounts.repository.ts';
+import type { AccountDocument } from './accounts.types.ts';
 
 const DUPLICATE_KEY = 11000;
 
@@ -423,7 +436,7 @@ the indexes come from a `@alexify/migronaut` migration of the module.
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import type { PasswordHasher } from '../app/accounts.ports.js';
+import type { PasswordHasher } from '../app/accounts.ports.ts';
 
 const scryptAsync = promisify(scrypt);
 const KEY_LENGTH = 64;
@@ -462,9 +475,9 @@ export const CredentialsSchema = Schema.from({ login: 'string', password: 'strin
 // src/modules/accounts/presentation/accounts.routes.ts
 import type { FastifyInstance } from 'fastify';
 
-import type { AccountsService } from '../app/accounts.service.js';
-import type { Credentials } from '../app/accounts.types.js';
-import { CredentialsSchema } from './accounts.schemas.js';
+import type { AccountsService } from '../app/accounts.service.ts';
+import type { Credentials } from '../app/accounts.types.ts';
+import { CredentialsSchema } from './accounts.schemas.ts';
 
 type RoutesOptions = { service: AccountsService };
 
@@ -501,16 +514,16 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from 'mongodb';
 
-import type { SessionStore } from '#shared/app/access.js';
+import type { SessionStore } from '#shared/app/access';
 
-import { createAccountsService } from './app/accounts.service.js';
-import type { AccountsService } from './app/accounts.service.js';
-import { openAccounts } from './infra/accounts.collection.js';
-import { createAccountsRepository } from './infra/accounts.repository.js';
-import { createPasswordHasher } from './infra/password-hasher.js';
-import { accountsRoutes } from './presentation/accounts.routes.js';
+import { createAccountsService } from './app/accounts.service.ts';
+import type { AccountsService } from './app/accounts.service.ts';
+import { openAccounts } from './infra/accounts.collection.ts';
+import { createAccountsRepository } from './infra/accounts.repository.ts';
+import { createPasswordHasher } from './infra/password-hasher.ts';
+import { accountsRoutes } from './presentation/accounts.routes.ts';
 
-export type { AccountsService } from './app/accounts.service.js';
+export type { AccountsService } from './app/accounts.service.ts';
 
 export type AccountsOptions = {
   db: Pick<Db, 'collection'>;
@@ -587,7 +600,7 @@ import { randomUUID } from 'node:crypto';
 
 import fp from 'fastify-plugin';
 
-import { DomainError } from '#shared/domain/domain-error.js';
+import { DomainError } from '#shared/domain/domain-error';
 
 const STATUS: Record<string, number> = {
   ALX_ERR_VALIDATION: 400,
@@ -624,8 +637,8 @@ before the guard was registered, where `onRoute` did not fire.
 import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
 
-import { isAllowed, isDeclared } from '#shared/app/access.js';
-import type { Session, SessionStore } from '#shared/app/access.js';
+import { isAllowed, isDeclared } from '#shared/app/access';
+import type { Session, SessionStore } from '#shared/app/access';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -671,11 +684,11 @@ import type { FastifyServerOptions } from 'fastify';
 import type { Db } from 'mongodb';
 
 import accounts from '#modules/accounts';
-import type { SessionStore } from '#shared/app/access.js';
+import type { SessionStore } from '#shared/app/access';
 
-import access from './plugins/access.js';
-import errors from './plugins/errors.js';
-import validation from './plugins/validation.js';
+import access from './plugins/access.ts';
+import errors from './plugins/errors.ts';
+import validation from './plugins/validation.ts';
 
 export type AppDeps = {
   db: Pick<Db, 'collection'>;
@@ -699,9 +712,9 @@ import { randomUUID } from 'node:crypto';
 
 import { MongoClient } from 'mongodb';
 
-import { createSessionStore } from '#shared/infra/session-store.js';
+import { createSessionStore } from '#shared/infra/session-store';
 
-import { buildApp } from './app.js';
+import { buildApp } from './app.ts';
 
 const { DATABASE_URL = '', PORT = '3000' } = process.env;
 
@@ -726,8 +739,8 @@ code it checks. The fakes shared by the tests of the module live in the module:
 
 ```ts
 // src/modules/accounts/tests/fakes.ts: fakes shared by the tests of the module
-import type { Account } from '../domain/account.js';
-import type { AccountsRepository } from '../domain/accounts.repository.js';
+import type { Account } from '../domain/account.ts';
+import type { AccountsRepository } from '../domain/accounts.repository.ts';
 
 export const createFakeCollection = () => {
   const documents: any[] = [];
@@ -778,8 +791,8 @@ The domain needs no fake:
 // src/modules/accounts/domain/tests/account.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { Account } from '../account.js';
-import { normalizeLogin } from '../credentials.js';
+import { Account } from '../account.ts';
+import { normalizeLogin } from '../credentials.ts';
 
 describe('Account', () => {
   it('should refuse to block an account twice', () => {
@@ -811,10 +824,10 @@ The service runs without a server, with a fake repository:
 // src/modules/accounts/app/tests/accounts.service.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { createSessionStore } from '#shared/infra/session-store.js';
+import { createSessionStore } from '#shared/infra/session-store';
 
-import { createFakeRepository, fakeHasher } from '../../tests/fakes.js';
-import { createAccountsService } from '../accounts.service.js';
+import { createFakeRepository, fakeHasher } from '../../tests/fakes.ts';
+import { createAccountsService } from '../accounts.service.ts';
 
 const createDeps = () => ({
   repository: createFakeRepository(),
@@ -858,9 +871,9 @@ The repository runs over a fake collection that behaves like the unique index:
 // src/modules/accounts/infra/tests/accounts.repository.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { Account } from '../../domain/account.js';
-import { createFakeCollection } from '../../tests/fakes.js';
-import { createAccountsRepository } from '../accounts.repository.js';
+import { Account } from '../../domain/account.ts';
+import { createFakeCollection } from '../../tests/fakes.ts';
+import { createAccountsRepository } from '../accounts.repository.ts';
 
 describe('accounts repository', () => {
   it('should reject a duplicate login through the unique index', async () => {
@@ -896,9 +909,9 @@ The routes run through `inject` on the real plugin tree:
 import { describe, expect, it } from 'vitest';
 
 import { buildApp } from '#app';
-import { createSessionStore } from '#shared/infra/session-store.js';
+import { createSessionStore } from '#shared/infra/session-store';
 
-import { createFakeDb } from '../../tests/fakes.js';
+import { createFakeDb } from '../../tests/fakes.ts';
 
 const createDeps = () => {
   let counter = 0;
@@ -949,9 +962,9 @@ The guard and the access decision are tested where they live:
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { createSessionStore } from '#shared/infra/session-store.js';
+import { createSessionStore } from '#shared/infra/session-store';
 
-import access from '../access.js';
+import access from '../access.ts';
 
 describe('access guard', () => {
   it('should fail the boot when a route declares no access', async () => {
@@ -989,7 +1002,7 @@ describe('access guard', () => {
 // src/shared/app/tests/access.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { isAllowed, isDeclared } from '../access.js';
+import { isAllowed, isDeclared } from '../access.ts';
 
 describe('access decision', () => {
   it('should refuse a missing or unknown declaration, even with a session', () => {

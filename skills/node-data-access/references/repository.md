@@ -12,8 +12,8 @@ yet: tenant scope, `v` and `rev` stamping, and the revision guard. Every block b
 // dal/base-repository.ts
 import type { ClientSession, Collection, Document, Filter, UpdateFilter } from 'mongodb';
 
-import { ConcurrentUpdateError, DocumentNotFoundError, InvalidQueryError } from './errors.js';
-import { toDalError } from './errors.js';
+import { ConcurrentUpdateError, DocumentNotFoundError, InvalidQueryError } from './errors.ts';
+import { toDalError } from './errors.ts';
 
 export type Context = { tenantId: string; actor: string; session?: ClientSession };
 export type Mapper<T> = {
@@ -228,10 +228,10 @@ Why it is written this way:
 
 ```ts
 // repositories/orders.repository.ts
-import type { Context } from '../dal/base-repository.js';
-import { BaseRepository } from '../dal/base-repository.js';
-import type { Order } from '../schema/order.model.js';
-import { OrderStatus } from '../schema/order.model.js';
+import type { Context } from '../dal/base-repository.ts';
+import { BaseRepository } from '../dal/base-repository.ts';
+import type { Order } from '../schema/order.model.ts';
+import { OrderStatus } from '../schema/order.model.ts';
 
 export class OrdersRepository extends BaseRepository<Order> {
   markPaid(cuid: string, rev: number, context: Context): Promise<number> {
@@ -265,8 +265,8 @@ import type { Schema } from '@alexify/metaschema';
 import type { Update } from '@alexify/metaschema/mongodb';
 import type { Document, UpdateFilter } from 'mongodb';
 
-import type { Mapper } from './base-repository.js';
-import { DocumentValidationError } from './errors.js';
+import type { Mapper } from './base-repository.ts';
+import { DocumentValidationError } from './errors.ts';
 
 export const createMapper = <T>(schema: Schema): Mapper<T> => ({
   toDocument(entity: Document): Document {

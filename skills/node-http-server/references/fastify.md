@@ -18,7 +18,8 @@ The module layout is in `node-layered-architecture`.
 ## Entry point
 
 `fastify start -o dist/main.js` (fastify-cli, on the `tsc` build) reads the exported `options` and
-registers the default export as a plugin. Relative imports in the sources end in `.js` (NodeNext).
+registers the default export as a plugin; development starts `src/main.ts` from the sources. Relative
+imports in the sources end in `.ts`, and the build rewrites them.
 
 ```ts
 import path from 'node:path';
@@ -82,8 +83,8 @@ directory when one exists (`process.loadEnvFile`). Validate these with the rest 
 // modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from './app/orders.service.js';
-import { orderRoutes } from './presentation/orders.routes.js';
+import { createOrderService, type OrderService } from './app/orders.service.ts';
+import { orderRoutes } from './presentation/orders.routes.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -211,7 +212,7 @@ No `fastify-plugin` here: hooks added inside stay inside. The module registers i
 // modules/orders/presentation/orders.routes.ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from './orders.schemas.js';
+import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
 
 export const orderRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook('onRequest', fastify.authenticate);
@@ -258,7 +259,7 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { orderRoutes } from '../orders.routes.js';
+import { orderRoutes } from '../orders.routes.ts';
 
 describe('POST /orders', () => {
   it('should answer 413 when the body exceeds the route limit', async () => {

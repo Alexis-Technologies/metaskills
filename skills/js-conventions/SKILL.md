@@ -90,7 +90,7 @@ Order in the file and in the export list:
 - Do not add `'use strict'` unless the project already uses it
 - Node builtins always use the `node:` prefix: `require('node:fs')`, not `require('fs')`
 - Packages: bare specifier, no extension
-- Relative paths always include the extension (`.js` / `.cjs` / `.mjs`); prefer `./dir/moduleName.js` over `./dir`
+- Relative paths always include the extension (`.js` / `.cjs` / `.mjs`, `.ts` in an app); prefer `./dir/moduleName.js` over `./dir`
 - Named exports at the bottom (inline `export` only when the project already does that)
 - One module per import/require statement; oxfmt decides the line breaks
 - One blank line between Node builtins, npm packages, and project modules

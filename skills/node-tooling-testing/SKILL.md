@@ -139,8 +139,8 @@ Types
   `expectError`). Review it with the exports in the same PR.
 - **App**: TypeScript with `strict`, `module: NodeNext`,
   `verbatimModuleSyntax` and `tsc --noEmit` in `typecheck`. Relative imports
-  end in `.js` (`'../users.routes.js'`), which NodeNext resolves to the `.ts`
-  source. Use `as const` objects, not `enum`.
+  end in `.ts` (`'../users.routes.ts'`): development runs the sources, and
+  production runs the build in `dist/`. Use `as const` objects, not `enum`.
 - JSDoc only when very short and to the point. It does not replace `.d.ts`.
 - Keep `typescript` and `@types/node` in `devDependencies`; match
   `@types/node` to the lowest Node major you support, so typings do not
@@ -149,11 +149,13 @@ Types
   but never checks them, so `tsc --noEmit` stays in the gate. Use only
   erasable syntax: no `enum`, `namespace` with code, parameter properties,
   `import =`; write `import type` for type-only imports. Node does not map a
-  `.js` specifier to a `.ts` file, so app code runs from the build or under
-  Vitest, and only a script run from source names `.ts` files; `tsconfig`
-  paths are ignored; `.ts` files inside `node_modules` are not stripped.
+  `.js` specifier to a `.ts` file, so code it runs from source names `.ts`
+  files (`allowImportingTsExtensions`); `tsconfig` paths are ignored; `.ts`
+  files inside `node_modules` are not stripped.
 - Use a real build (`tsc`) to publish or deploy compiled JS. An app sets
-  `rewriteRelativeImportExtensions` in its build config.
+  `rewriteRelativeImportExtensions` in its build config; its aliases and
+  workspace packages resolve to the sources under a `source` condition
+  (`node --conditions=source`) and to `dist/` by default.
 
 Runtime tooling
 
@@ -172,10 +174,13 @@ Runtime tooling
 CI and upgrades
 
 - CI runs `pnpm install --frozen-lockfile` and the project's gates on every
-  pull request. A library tests every Node line in `engines.node`, the
-  floor written exactly (`22.18.0`, not `22`); an app runs on its one Node
-  version. Cache pnpm via `actions/setup-node`. One aggregate job, required
-  by branch protection, fails on a failed or skipped job.
+  pull request. A library tests every Node line in `engines.node`, the floor
+  written exactly (`22.18.0`, not `22`); an app runs on its one Node version.
+  When the package manager cannot run on the floor (pnpm 10 needs 18.12), the
+  matrix starts at the lowest version it runs on, `engines` stays, and the
+  project's CLAUDE.md records the gap. Cache pnpm via `actions/setup-node`.
+  One aggregate job, required by branch protection, fails on a failed or
+  skipped job.
 - Upgrade Node in a dedicated PR with a checklist: bump CI matrix and
   `engines`, regenerate the lockfile in its own commit, run once with
   `--throw-deprecation` and `--pending-deprecation`, remove flags that became
@@ -244,7 +249,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { usersRoutes } from '../users.routes.js';
+import { usersRoutes } from '../users.routes.ts';
 
 describe('GET /users/:id', () => {
   let app: FastifyInstance | null = null;
@@ -324,7 +329,7 @@ More recipes:
 - [ ] At least one integration test exercises the real transport or `inject`.
 - [ ] Error assertions check `code`/`name`/`message`, not just "throws".
 - [ ] `.d.ts` checked by `check:dts` and tsd; `types` and `files` point at it.
-- [ ] App relative imports end in `.js`; TS run by Node is erasable only.
+- [ ] App relative imports end in `.ts`; TS run by Node is erasable only.
 - [ ] CI uses `--frozen-lockfile` on all lines of `engines`, the floor exact.
 - [ ] `--watch`, `--env-file`, snapshots update flags never used in production.
 - [ ] Node upgrades done via the checklist in a separate PR.

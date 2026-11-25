@@ -119,8 +119,8 @@ import { randomUUID } from 'node:crypto';
 
 import fp from 'fastify-plugin';
 
-import { DalError } from './dal/errors.js';
-import { DomainError } from './domain/errors.js';
+import { DalError } from './dal/errors.ts';
+import { DomainError } from './domain/errors.ts';
 
 const HTTP_STATUS: Record<string, number> = {
   ALX_ERR_VALIDATION: 400,

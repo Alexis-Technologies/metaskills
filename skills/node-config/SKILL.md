@@ -127,7 +127,7 @@ export const loadConfig = (env: Record<string, string | undefined>): Readonly<Co
 // plugins/config.ts
 import fp from 'fastify-plugin';
 
-import { loadConfig, type Config } from '../config.js';
+import { loadConfig, type Config } from '../config.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {

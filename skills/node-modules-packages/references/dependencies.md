@@ -113,6 +113,12 @@ allowBuilds:
 - Run a script in one package: `pnpm --filter @example/api run build`.
 - Reference sibling packages with `workspace:*`, and shared versions with
   `catalog:`, never by relative path into another package's sources.
+- A workspace package of an app gives its sources to development and its build
+  to production:
+  `".": { "source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }`
+  with `"files": ["dist"]`. The app runs `node --conditions=source` in
+  development. Node.js does not strip types under `node_modules`, where
+  `pnpm deploy` copies the package, so production never reaches a `.ts` file.
 - Keep shared configs (`.oxlintrc.json`, `.oxfmtrc.json`, `tsconfig.base.json`)
   at the root. `auth8` orchestrates targets with Nx.
 - The `@alexify` libraries are a polyrepo of small packages with the same
@@ -120,18 +126,18 @@ allowBuilds:
 
 ## Dependency hygiene commands
 
-| Task                                 | Command                                                   |
-| ------------------------------------ | --------------------------------------------------------- |
-| Reproducible install (CI, Docker)    | `pnpm install --frozen-lockfile` (`--prod` for an image)  |
-| Why is this package here             | `pnpm why <pkg>`                                          |
-| Size of the tree                     | `pnpm list --depth Infinity`                              |
-| Known vulnerabilities                | `pnpm audit` (`--prod` for runtime only)                  |
-| Outdated packages                    | `pnpm outdated`                                           |
-| Exact version for a new dependency   | `pnpm add --save-exact <pkg>`                             |
-| Do not run install scripts           | The default; allow one in `allowBuilds`                   |
-| Review blocked install scripts       | `pnpm approve-builds`                                     |
-| Skip versions younger than N minutes | `minimumReleaseAge: <minutes>` in `pnpm-workspace.yaml`   |
-| Force a transitive version           | `overrides:` in `pnpm-workspace.yaml`                     |
+| Task                                 | Command                                                             |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| Reproducible install (CI, Docker)    | `pnpm install --frozen-lockfile`, `pnpm deploy --prod` for an image |
+| Why is this package here             | `pnpm why <pkg>`                                                    |
+| Size of the tree                     | `pnpm list --depth Infinity`                                        |
+| Known vulnerabilities                | `pnpm audit` (`--prod` for runtime only)                            |
+| Outdated packages                    | `pnpm outdated`                                                     |
+| Exact version for a new dependency   | `pnpm add --save-exact <pkg>`                                       |
+| Do not run install scripts           | The default; allow one in `allowBuilds`                             |
+| Review blocked install scripts       | `pnpm approve-builds`                                               |
+| Skip versions younger than N minutes | `minimumReleaseAge: <minutes>` in `pnpm-workspace.yaml`             |
+| Force a transitive version           | `overrides:` in `pnpm-workspace.yaml`                               |
 
 Semver reminders: `^1.2.3` allows `<2.0.0`; `^0.2.3` allows only `<0.3.0`;
 `~1.2.3` allows `<1.3.0`. A lockfile pins the whole tree; ranges only matter

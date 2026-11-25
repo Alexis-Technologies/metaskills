@@ -89,7 +89,7 @@ sdk.start();
 // plugins/telemetry.ts: registered first, so its onClose runs last
 import fp from 'fastify-plugin';
 
-import { sdk } from '../instrumentation.js';
+import { sdk } from '../instrumentation.ts';
 
 export default fp(
   async (fastify) => {

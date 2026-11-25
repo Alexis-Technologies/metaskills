@@ -39,7 +39,7 @@ import CircuitBreaker from 'opossum';
 
 import type { Logger } from 'pino';
 
-import type { HttpClient } from '#shared/infra/http.client.js';
+import type { HttpClient } from '#shared/infra/http.client';
 
 type ChargeInput = { orderId: string; amount: number };
 type Deps = { http: HttpClient; logger: Logger };

@@ -106,18 +106,21 @@ benchmarks are outside it.
 | `format:check`  | `oxfmt --check <paths>`                                |
 | `prepublishOnly`| every gate above that the package has                  |
 
-| Script             | App package                                       |
-| ------------------ | ------------------------------------------------- |
-| `dev`              | `fastify start -o --watch src/main.ts`            |
-| `build`            | `tsc -p tsconfig.build.json`                      |
-| `start`            | `fastify start -o dist/main.js`                   |
-| `test`             | `vitest run`                                      |
-| `test:cov`         | `vitest run --coverage`                           |
-| `test:integration` | `vitest run --config vitest.integration.config.ts`|
-| `lint`, `lint:fix` | `oxlint src`, `oxlint src --fix`                  |
-| `format`           | `oxfmt src`                                       |
-| `format:check`     | `oxfmt --check src`                               |
-| `typecheck`        | `tsc --noEmit`                                    |
+| Script             | App package                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `dev`              | `node --conditions=source node_modules/fastify-cli/cli.js start -o --watch src/main.ts` |
+| `build`            | `tsc -p tsconfig.build.json`                                                            |
+| `start`            | `fastify start -o dist/main.js`                                                         |
+| `test`             | `vitest run`                                                                            |
+| `test:cov`         | `vitest run --coverage`                                                                 |
+| `test:integration` | `vitest run --config vitest.integration.config.ts`                                      |
+| `lint`, `lint:fix` | `oxlint src`, `oxlint src --fix`                                                        |
+| `format`           | `oxfmt src`                                                                             |
+| `format:check`     | `oxfmt --check src`                                                                     |
+| `typecheck`        | `tsc --noEmit`                                                                          |
+
+`--conditions=source` resolves the `imports` aliases and the workspace packages
+to their sources (`node-layered-architecture`); `start` gets their `dist/`.
 
 ## GitHub Actions
 
@@ -206,7 +209,10 @@ jobs:
 
 - Matrix = the floor of `engines.node` written exactly (`'22.18.0'` for
   `>=22.18.0`; `22` is the newest 22.x and proves nothing about the floor),
-  then every newer Node line you claim.
+  then every newer Node line you claim. When the package manager cannot run on
+  the floor (pnpm 10 needs 18.12, so not `>=18.0.0`), start at the lowest
+  version it runs on, keep `engines` as it is, and record the gap and what it
+  leaves unchecked in the project's CLAUDE.md.
 - oxlint and oxfmt declare `engines` of Node.js 20.19+ or 22.12+, so they stay
   out of a matrix that includes 18.
 - Keep Windows in the matrix for libraries that touch paths, fs or processes.
@@ -296,8 +302,11 @@ tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts
 ```
 
 App `tsconfig.base.json` (trimmed from `auth8`). `tsconfig.json` adds
-`"noEmit": true` and `"allowImportingTsExtensions": true`; `tsconfig.build.json`
-adds `"outDir"` and `"rewriteRelativeImportExtensions": true`.
+`"noEmit": true`, `"allowImportingTsExtensions": true` and
+`"customConditions": ["source"]`; `tsconfig.build.json` adds `"outDir"` and
+`"rewriteRelativeImportExtensions": true`, without the condition, so the build
+reads a referenced workspace package from its `dist/`, built first by `tsc -b`
+or Nx.
 
 ```json
 {
@@ -346,12 +355,15 @@ adds `"outDir"` and `"rewriteRelativeImportExtensions": true`.
   fails at runtime ("does not provide an export named"); write
   `import type`. `verbatimModuleSyntax` makes `tsc` enforce this.
 - Node resolves the real file name: a `.js` specifier does not reach a `.ts`
-  file. App code writes `.js` (NodeNext) and runs from the build, so only a
-  script run from source names its `.ts` files, with
-  `allowImportingTsExtensions`. tsconfig `paths` and `baseUrl` are ignored;
-  use package `imports` (`#lib/*`).
-- `.ts` files under `node_modules` are not stripped: publish compiled JS
-  and `.d.ts`.
+  file. Code run from source, an app in development included, names its `.ts`
+  files (`allowImportingTsExtensions`), and the build rewrites them
+  (`rewriteRelativeImportExtensions`). tsconfig `paths` and `baseUrl` are
+  ignored; use package `imports` (`#lib/*`) without an extension, a `source`
+  condition for the sources and `dist/` by default.
+- `.ts` files under `node_modules` are not stripped
+  (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`): publish compiled JS and
+  `.d.ts`. `pnpm deploy` copies workspace packages there too, so their default
+  export is `dist/`.
 - Type checking still needs `tsc --noEmit`; `erasableSyntaxOnly` (TS 5.8+)
   makes `tsc` reject syntax Node cannot strip.
 
