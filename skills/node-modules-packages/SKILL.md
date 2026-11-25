@@ -61,7 +61,7 @@ Module system
 - Write relative specifiers with the extension (`./lib/user.js`). ESM
   requires it. In CommonJS it removes extension and directory probing and
   makes the target obvious. Never rely on implicit `index.js`. An app writes
-  `./logger.js` for `logger.ts`, as NodeNext resolves it.
+  `./logger.ts`, and its build rewrites it.
 - In ESM use `import.meta.dirname`, `import.meta.filename`,
   `import.meta.url` and `createRequire(import.meta.url)` instead of the
   CommonJS locals. Load JSON with `fs` or `createRequire`, not ad hoc globals.
@@ -220,7 +220,7 @@ export default main;
 // src/plugins/users.ts
 import fp from 'fastify-plugin';
 
-import { createUsers } from '../domain/users.js';
+import { createUsers } from '../domain/users.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {

@@ -196,17 +196,19 @@ await app.register(AutoLoad, {
 {
   "imports": {
     "#app": { "source": "./src/app.ts", "default": "./dist/app.js" },
-    "#shared/*": { "source": "./src/shared/*", "default": "./dist/shared/*" },
+    "#shared/*": { "source": "./src/shared/*.ts", "default": "./dist/shared/*.js" },
     "#modules/*": { "source": "./src/modules/*/index.ts", "default": "./dist/modules/*/index.js" }
   }
 }
 ```
 
-Node.js resolves these `package.json` imports to the build in `dist/`. `tsc`
-with `moduleResolution: nodenext` and `customConditions: ["source"]`, and Vitest
-with `ssr.resolve.conditions: ['source']`, resolve them to the TypeScript
-([example-app.md](example-app.md)). Specifiers end in `.js`:
-`#shared/app/access.js`, `./accounts.service.js`.
+In production Node.js resolves these `package.json` imports to the build in
+`dist/`. In development `node --conditions=source` runs the TypeScript, and so
+do `tsc` with `moduleResolution: nodenext` and `customConditions: ["source"]`,
+and Vitest with `ssr.resolve.conditions: ['source']`
+([example-app.md](example-app.md)). An alias has no extension
+(`#shared/app/access`); a relative specifier ends in `.ts`
+(`./accounts.service.ts`), and the build rewrites it to `.js`.
 
 - Relative imports stay inside the module.
 - Everything outside it comes through `#shared/...` or `#modules/<name>`.
@@ -288,7 +290,7 @@ only one `no-restricted-imports` applies to a file, and a later override wins.
 ```
 
 oxlint has no `import/no-restricted-paths`, and a pattern cannot tell
-`../../domain/x.js` inside a module from `../../billing/x.js` in the next one.
+`../../domain/x.ts` inside a module from `../../billing/x.ts` in the next one.
 The module boundary is a test that resolves every relative import:
 
 ```ts
@@ -329,8 +331,8 @@ describe('module boundaries', () => {
 });
 ```
 
-It reports `../../accounts/app/accounts.service.js`, `../../../app.js` and
-`#modules/accounts/app/accounts.service.js`, and accepts `#modules/accounts`.
+It reports `../../accounts/app/accounts.service.ts`, `../../../app.ts` and
+`#modules/accounts/app/accounts.service`, and accepts `#modules/accounts`.
 
 ## Delete, extract, share
 

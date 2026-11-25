@@ -1,6 +1,6 @@
 {
   "name": "@alexify/metaskills",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": false,
   "description": "Agent skills for the Alexis JavaScript stack: reusable instructions for Claude Code, Cursor, Windsurf, VS Code and Gemini, linked into a project by one command",
   "license": "MIT",

@@ -55,7 +55,7 @@ The full wiring, with a lifecycle table and an `inject` test, is in
 // modules/orders/index.ts
 import fp from 'fastify-plugin';
 
-import { createOrderService, type OrderService } from './app/orders.service.js';
+import { createOrderService, type OrderService } from './app/orders.service.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -102,7 +102,7 @@ export default fp(
 ```ts
 import type { FastifyInstance } from 'fastify';
 
-import { CreateOrderBody, OrderReply } from './orders.schemas.js';
+import { CreateOrderBody, OrderReply } from './orders.schemas.ts';
 
 const orderRoutes = async (fastify: FastifyInstance) => {
   const guarded = { preHandler: [fastify.authenticate] };

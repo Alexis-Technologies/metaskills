@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-25
+
+A patch release: the App profile runs its sources in development again, as auth8's ADR-016
+describes, and CI may start below an `engines` floor that the package manager cannot run on.
+
+### Fixed
+
+- **Relative imports in TypeScript apps end in `.ts` again.** 1.1.0 asked for `.js`, which Node.js
+  does not map to a `.ts` file, so an app could no longer run its sources in development. An app
+  runs `src/` through Node's type stripping in development and the `tsc` build in `dist/` in
+  production. `tsconfig.json` allows `.ts` specifiers, and `tsconfig.build.json` rewrites them
+  with `rewriteRelativeImportExtensions`.
+- **Import aliases and workspace packages resolve to the sources under a `source` condition** and
+  to `dist/` by default. Aliases have no extension (`#shared/app/access`), development runs
+  `node --conditions=source`, and a workspace package exports `source`, `types` and `default`.
+  Production never loads a `.ts` file, which Node.js refuses under `node_modules`, where
+  `pnpm deploy` copies a workspace package.
+- **CI below an unreachable floor.** When the package manager cannot run on the floor of
+  `engines` (pnpm 10 needs Node.js 18.12), the matrix starts at the lowest version it runs on,
+  `engines` stays, and the project's CLAUDE.md records the gap.
+- **Paths that only worked from the build.** A Piscina worker takes the extension of the file
+  that starts it, and the migronaut config of `node-data-access` is `migronaut.config.ts`.
+- **The image install of `dependencies.md`** is `pnpm deploy --prod`, as in `node-deploy`, not
+  `pnpm install --prod`.
+
+### Upgrading from 1.1.0
+
+In an app that moved its relative imports to `.js` for 1.1.0:
+
+1. Rename the relative specifiers back to `.ts`, set `allowImportingTsExtensions` in
+   `tsconfig.json` and `rewriteRelativeImportExtensions` in `tsconfig.build.json`.
+2. Write the aliases without an extension, with `source` and `default` targets, and run
+   development with `node --conditions=source`.
+3. Give each workspace package `source`, `types` and `default` exports and `"files": ["dist"]`.
+
 ## [1.1.0] - 2026-11-25
 
 The skills agree with themselves and with the Alexis libraries. A review of the ten sibling
@@ -220,7 +255,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Alexis-Technologies/metaskills/releases/tag/v1.0.0

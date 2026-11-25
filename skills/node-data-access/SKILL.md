@@ -249,7 +249,7 @@ the user's data. Map `ALX_ERR_DAL_DUPLICATE_KEY` and `ALX_ERR_DAL_CONFLICT` to 4
 // dal/transaction.ts
 import type { ClientSession, MongoClient } from 'mongodb';
 
-import { TransactionError, hasTransactionLabel, toDalError } from './errors.js';
+import { TransactionError, hasTransactionLabel, toDalError } from './errors.ts';
 
 const TRANSACTION_TIMEOUT_MS = 10_000;
 

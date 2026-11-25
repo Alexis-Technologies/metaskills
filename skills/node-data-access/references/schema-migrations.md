@@ -91,7 +91,7 @@ back:
 import { toJSONSchema } from '@alexify/metaschema/generators';
 import bson from '@alexify/metaschema/mongodb';
 
-import { model } from './order.model.js';
+import { model } from './order.model.ts';
 
 const MANAGED = new Set(['v', 'rev']);
 const ACTIVE = { deletedAt: null };
@@ -128,9 +128,9 @@ export const orders = {
 };
 ```
 
-```js
-// migronaut.config.js
-import { orders } from './schema/collections.js';
+```ts
+// migronaut.config.ts (migronaut init --ts)
+import { orders } from './schema/collections.ts';
 
 export default {
   uri: process.env.MIGRONAUT_URI,

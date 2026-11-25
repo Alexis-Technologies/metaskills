@@ -23,6 +23,7 @@ verified on Node.js 24:
 ```ts
 // plugins/imports.ts: one pool per kind of CPU work, created once
 import { availableParallelism } from 'node:os';
+import { extname } from 'node:path';
 
 import fp from 'fastify-plugin';
 import { Piscina } from 'piscina';
@@ -37,7 +38,8 @@ export default fp(
   async (fastify) => {
     const maxThreads = fastify.config.IMPORT_THREADS ?? Math.max(availableParallelism() - 1, 1);
     const pool = new Piscina({
-      filename: new URL('../workers/parse-import.js', import.meta.url).href,
+      // .ts when development runs the sources, .js from the build in dist/
+      filename: new URL(`../workers/parse-import${extname(import.meta.filename)}`, import.meta.url).href,
       minThreads: 1,
       maxThreads,
       maxQueue: maxThreads * 4,

@@ -345,7 +345,8 @@ Rules the Alexis libraries hold, so the suites keep proving what they claim.
 - **No `await using`** in a file that Node 22 loads: Node 22 does not parse
   it, and the file fails whole on Node 22 alone. Close with `t.after`.
 - **CI runs the exact engines floor** (`'22.18.0'` for `>=22.18.0`; `22` is
-  the newest 22.x), and the aggregate job fails on a skipped job too. The
+  the newest 22.x), or the lowest version the package manager runs on, with
+  the gap in CLAUDE.md. The aggregate job fails on a skipped job too. The
   workflow is in `ci-types-release.md`.
 
 ```js
