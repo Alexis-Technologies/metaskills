@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-25
+
+A patch release with two exceptions that wrpc measured and needed: library code may loop with
+`for...of` and `for...in`, and a loop that replaces an array method skips holes as the method did.
+
+### Changed
+
+- **`for...of` and `for...in` are allowed in every layer**, library `src/` included. `for...of`
+  goes over any iterable, `for...in` over a plain object, a literal or JSON. On a small object
+  `for...in` beats `Object.keys` with an index loop: wrpc's `bench/object-walk.js` walked 7
+  headers at 9.9 M ops/s against 6.8 M. `Object.keys` stays for a large dictionary (1,000 rooms:
+  29,000 against 22,000), a class instance and input of unknown origin, and `for...in` never
+  walks an array. A hot path keeps the loop its benchmark picks. `js-conventions` and
+  `js-data-structures` say so.
+- **A sparse array from the caller keeps working.** A loop that replaces `every`, `some`,
+  `forEach`, `filter`, `map`, `reduce` or `flatMap` on an array the caller passes skips holes
+  with `if (!(i in list)) continue;`, as the method did. `find`, `findIndex`, `for...of` and an
+  index loop read a hole as `undefined`. Arrays the code builds still have no holes.
+
+### Upgrading from 1.1.1
+
+1. Nothing has to change: `Object.keys` with an index loop stays valid.
+2. Check the loops that replaced array methods on caller input, such as options, and skip holes
+   where the method skipped them.
+
 ## [1.1.1] - 2026-11-25
 
 A patch release: the App profile runs its sources in development again, as auth8's ADR-016
@@ -255,7 +280,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.1...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...v1.0.1

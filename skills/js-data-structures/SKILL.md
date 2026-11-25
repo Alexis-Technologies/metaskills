@@ -135,7 +135,7 @@ const text = STATUS_TEXT[status] ?? 'Unknown';
 - Do not `delete` record fields; set `null` for refs, `undefined` for primitives. `delete` is for dictionaries and for data where a missing key means something
 - A record is a literal or a class, never `Object.create(null)`: a null-prototype object starts in dictionary mode
 - Objects that share a property should share the full shape — avoid polymorphic property reads
-- Walk a plain data object with `for...in` in domain code; in library and hot code, take `Object.keys(obj)` and use an index loop. `Object.entries` only outside hot paths and library `src/`
+- Walk a plain data object (a literal or JSON) with `for...in` in any layer: on a small object it beats `Object.keys(obj)` with an index loop, which stays for a large dictionary, an instance or input of unknown origin. `Object.entries` only outside hot paths and library `src/`
 
 ## Array
 
