@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-25
+
 The skills agree with themselves and with the Alexis libraries. A review of the ten sibling
 repositories found 23 places where the skills contradicted each other or their own lint, and
 rules the libraries had proven that the skills lacked. The maintainer settled each one.
@@ -218,7 +220,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Alexis-Technologies/metaskills/releases/tag/v1.0.0
 [upstream-1.0.6]: https://github.com/metarhia/metaskills/compare/v1.0.5...v1.0.6
