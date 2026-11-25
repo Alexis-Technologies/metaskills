@@ -31,7 +31,7 @@ pnpm pack
 Then, in your project:
 
 ```bash
-pnpm add -D /path/to/metaskills/alexify-metaskills-1.1.1.tgz
+pnpm add -D /path/to/metaskills/alexify-metaskills-1.1.2.tgz
 ```
 
 ## Link your IDE
