@@ -90,7 +90,9 @@ describe('plan and skip', () => {
 - `t.signal` is aborted when the test times out or is cancelled; pass it
   to `fetch`, `events.once` and timers inside the test.
 - `t.after(fn)` registers cleanup for the current test; call it on the line
-  after the setup it undoes, and prefer it to `try/finally`.
+  after the setup it undoes, and prefer it to `try/finally`. It came in
+  Node.js 18.13: a suite that runs on 18.12 uses `try/finally` or an `after`
+  hook.
 - A skip carries its reason as a string, never a bare `true`.
 - Subtests with `t.test()` must be awaited.
 
@@ -171,7 +173,8 @@ describe('mock timers', () => {
 
 APIs that can be mocked: `setTimeout`, `setInterval`, `setImmediate`,
 `Date`, and the `node:timers/promises` equivalents. `mock.timers.runAll()`
-fires everything pending.
+fires everything pending. `mock.timers` came in Node.js 18.19 and 20.4: a
+suite that runs on 18.12 injects the clock instead.
 
 ## Snapshots
 

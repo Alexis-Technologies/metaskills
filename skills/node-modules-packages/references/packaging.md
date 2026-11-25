@@ -48,7 +48,7 @@ const isRedis = (client) =>
 
 const createCache = ({ redis }) => {
   if (!isRedis(redis)) {
-    throw new CacheError('ALX_ERR_INVALID_REDIS', { message: 'redis needs get() and set()' });
+    throw new CacheError('redis needs get() and set()', { code: 'ALX_ERR_INVALID_REDIS' });
   }
   return { get: (key) => redis.get(key) };
 };

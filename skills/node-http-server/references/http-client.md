@@ -38,11 +38,14 @@ export default fp(
 ```ts
 import type { Pool } from 'undici';
 
+type UpstreamErrorOptions = ErrorOptions & { status?: number };
+
 class UpstreamError extends Error {
   readonly status: number;
 
-  constructor(status: number, options?: ErrorOptions) {
-    super(`Upstream answered ${status}`, options);
+  constructor(message: string, options: UpstreamErrorOptions = {}) {
+    const { status = 502 } = options;
+    super(message, options);
     this.name = 'UpstreamError';
     this.status = status;
   }
@@ -52,7 +55,8 @@ const TIMEOUT_CODES = new Set(['UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT'
 
 const toUpstreamError = (error: Error & { code?: string | number }) => {
   const isTimeout = error.name === 'TimeoutError' || TIMEOUT_CODES.has(`${error.code}`);
-  return new UpstreamError(isTimeout ? 504 : 502, { cause: error });
+  if (isTimeout) return new UpstreamError('Upstream timed out', { status: 504, cause: error });
+  return new UpstreamError('Upstream failed', { status: 502, cause: error });
 };
 
 const createBillingClient = (pool: Pool) => {
@@ -63,7 +67,8 @@ const createBillingClient = (pool: Pool) => {
     });
     if (response.statusCode >= 400) {
       await response.body.dump();
-      throw new UpstreamError(response.statusCode);
+      const status = response.statusCode;
+      throw new UpstreamError(`Upstream answered ${status}`, { status });
     }
     return response.body.json();
   };

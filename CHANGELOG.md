@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
+A minor release: every error class takes `(message, options = {})`, as `Error` does, so an error
+is constructed the same way in every layer and every library, and the skills follow
+`@alexify/metaschema` 4.0.
+
+### Changed
+
+- **Error classes take `(message, options = {})`.** `options` holds `cause` and the class's own
+  fields (`code`, `details`, `statusCode`, `retryAfterMs`), and the constructor passes it to
+  `super` whole, so `cause` is set only when given. The old `DomainError` passed `{ cause }` on
+  and left an own `cause` that was `undefined` on every error. `new DomainError(code, { message,
+  cause, details })` is now `new DomainError(message, { code, cause, details })`, with
+  `ALX_ERR_DOMAIN` as the default code. `error-handling` states the rule, and every example
+  follows it: `DomainError`, the `DalError` family, `ConfigError`, `OptionsError`, `ClosedError`,
+  `CacheError`, `ContractError`, `CircuitOpenError`, `HttpError` and `UpstreamError`.
+- **A subclass with a fixed code keeps the signature** and sets its code with a field
+  (`override readonly code = 'ALX_ERR_DAL_NOT_FOUND'`). `DocumentNotFoundError`,
+  `ConcurrentUpdateError`, `InvalidQueryError` and `TransactionError` take the message their
+  caller writes; `DuplicateKeyError` reads `fields` and `DocumentValidationError` reads `issues`
+  from `options`.
+- **The `HttpError` of `node-security` carries `statusCode`**, as `error-handling` asks, not
+  `status`.
+- **metaschema 4.0.** `alexis-libraries`, `js-contracts-schemas` and `node-config` follow
+  `@alexify/metaschema` 4.0.0: every code it throws is `ALX_ERR_*`, a wrong call is a
+  `SchemaUsageError` (a `TypeError`, exported by the core and `/definition`), and a wrong option
+  of any call is `ALX_ERR_INVALID_OPTION`. `node-config` requires `^4.0.0`.
+
+### Added
+
+- **metaschema at a trust boundary.** `maxErrors` (no limit by default: 1,000 wrong items gave
+  1,000 issues), `maxDepth`, `root`, `references`, the `uk` locale, `result.flatten()` and
+  `tree()`. The Fastify compiler of `js-contracts-schemas` passes `maxErrors`, and an `exception`
+  issue, which carries the text a `validate` threw, maps to 500 at the boundary.
+- **`schema.warnings` and `model.warnings`** (`ambiguous-kind`, `unbounded-pattern`,
+  `missing-reference`), asserted empty in a test.
+- **`/stream` and `/compile`.** `concurrency`, `maxInvalid` and `transform`; `ALX_ERR_INVALID_RECORD`
+  carries the record, so it is never logged raw. `jit: 'auto'` keeps the closures silently under
+  `--disallow-code-generation-from-strings`, which `node-security` recommends.
+- **A `scripts` check in `npm-publish`**: no `release` or `publish` script that bumps, tags or
+  publishes. metaschema dropped its `release` in 4.0.
+
+### Fixed
+
+- **What the skills said of metaschema**, each row checked against 4.0.0:
+  - an error line starts with the schema name, `Field "Login" has unexpected keys: isAdmin`, and
+    `""` only for `Schema.from` or `{ root: '' }`;
+  - a kind is a kind name holding a **plain** object: a list, a `Schema`, a built field or a
+    function under a kind name is a field, while a PascalCase key holding a nested struct is still
+    a kind, and only `ambiguous-kind` says so;
+  - `~standard.validate` returns a promise when a validator, a decoder or a `checkType` is an
+    `async function`;
+  - `{ registry: 'isolated' }` is the fourth argument of `new Model`: passed third, it became
+    `model.database`;
+  - `partial` also takes `keys` and `defaults: true`, and `deep` stops at collections, tuples,
+    unions and references;
+  - `fromDocument` needs `register()` of `/coerce`, or `coerce: false`;
+  - a reference to a memory kind is the embedded record, not an id;
+  - `validate` may also return `null`, `false`, an issue or a list of them, and a throw is an
+    `exception` issue;
+  - `bigint` makes `toJSONSchema` throw `ALX_ERR_UNREPRESENTABLE`, `unrepresentable: 'any'`
+    renders `{}`, and the mongodb target writes `bsonType: 'long'`;
+  - with `discriminator: 'type'`, every branch starts with `Struct: {}`.
+- **`node-tooling-testing` on an 18.12 floor.** Node.js 18.12 has neither `t.after` (18.13) nor
+  `mock.timers` (18.19): a suite held to it closes with an `after` hook or `try`/`finally` and
+  injects the clock.
+- **The examples of `js-conventions` name booleans with `is` and `has`**, as its rule asks:
+  `isArrow`, `hasCtrl`, `hasSuffix`, `isLive`.
+
+### Upgrading from 1.1.2
+
+1. Swap the arguments of each custom error class: `constructor(message, options = {})`, the code
+   and the other fields read from `options`, and `super(message, options)`.
+2. Rewrite the calls: `new DomainError('ALX_ERR_CONFLICT', { message: 'Login is taken' })` becomes
+   `new DomainError('Login is taken', { code: 'ALX_ERR_CONFLICT' })`. A call that passed only a
+   code now writes its message.
+3. Where a library exports its error classes, their constructors are public API: the change is
+   breaking there and waits for the library's next major version.
+4. On metaschema 4.0, compare thrown codes with the `ALX_ERR_*` names (search for `'ERR_`), set
+   `maxErrors` at each boundary, and assert `schema.warnings` empty.
+
 ## [1.1.2] - 2026-11-25
 
 A patch release with two exceptions that wrpc measured and needed: library code may loop with
@@ -280,7 +361,8 @@ The releases of the project this one was copied from, up to the commit of the fo
 - Autodetect IDE dirs and link skills without a menu prompt
 - Prune stale symlinks on re-run after package update
 
-[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.2...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaskills/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Alexis-Technologies/metaskills/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Alexis-Technologies/metaskills/compare/v1.0.1...v1.1.0

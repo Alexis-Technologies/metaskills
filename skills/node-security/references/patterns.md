@@ -46,9 +46,11 @@ so all logins from one IP share a counter. Set `trustProxy` only to the proxies 
 
 ```js
 class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
+  constructor(message, options = {}) {
+    const { statusCode = 500 } = options;
+    super(message, options);
+    this.name = 'HttpError';
+    this.statusCode = statusCode;
   }
 }
 
@@ -65,7 +67,7 @@ const createLimiter = (concurrency, queueSize) => {
   };
   return async (task) => {
     if (active >= concurrency) {
-      if (queue.length >= queueSize) throw new HttpError(503, 'Busy');
+      if (queue.length >= queueSize) throw new HttpError('Busy', { statusCode: 503 });
       await new Promise((resolve) => queue.push(resolve));
     } else {
       active++;

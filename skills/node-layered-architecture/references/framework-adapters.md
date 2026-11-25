@@ -78,13 +78,13 @@ export const createDispatcher = ({ endpoints, sessions }: DispatcherDeps) => {
 
   const call = async ({ name, args = {}, token = '', requestId }: Call) => {
     const endpoint = endpoints.get(name);
-    if (!endpoint) throw new DomainError('ALX_ERR_NOT_FOUND', { message: 'Not found' });
+    if (!endpoint) throw new DomainError('Not found', { code: 'ALX_ERR_NOT_FOUND' });
     const session = token ? await sessions.restore(token) : null;
     if (!isAllowed(endpoint.access, session)) {
-      throw new DomainError('ALX_ERR_FORBIDDEN', { message: 'Forbidden' });
+      throw new DomainError('Forbidden', { code: 'ALX_ERR_FORBIDDEN' });
     }
     const { valid, value } = endpoint.schema.parse(args, { unknown: 'reject' });
-    if (!valid) throw new DomainError('ALX_ERR_VALIDATION', { message: 'Invalid arguments' });
+    if (!valid) throw new DomainError('Invalid arguments', { code: 'ALX_ERR_VALIDATION' });
     const context = Object.freeze({ requestId, session });
     return endpoint.method(value, context);
   };

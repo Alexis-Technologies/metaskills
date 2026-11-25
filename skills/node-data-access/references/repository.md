@@ -165,8 +165,9 @@ export class BaseRepository<T> {
       if (result.matchedCount === 1) return rev + 1;
       const current = this.active(context, { cuid: { $eq: id } });
       const found = await this.collection.findOne(current, { projection: { rev: 1 }, session });
-      if (found === null) throw new DocumentNotFoundError(this.collection.collectionName);
-      throw new ConcurrentUpdateError(this.collection.collectionName);
+      const name = this.collection.collectionName;
+      if (found === null) throw new DocumentNotFoundError(`Document not found in ${name}`);
+      throw new ConcurrentUpdateError(`Concurrent update in ${name}`);
     } catch (error) {
       throw toDalError(error);
     }
@@ -187,8 +188,9 @@ export class BaseRepository<T> {
         projection: { rev: 1 },
         session,
       });
-      if (found === null) throw new DocumentNotFoundError(this.collection.collectionName);
-      throw new ConcurrentUpdateError(this.collection.collectionName);
+      const name = this.collection.collectionName;
+      if (found === null) throw new DocumentNotFoundError(`Document not found in ${name}`);
+      throw new ConcurrentUpdateError(`Concurrent update in ${name}`);
     } catch (error) {
       throw toDalError(error);
     }
@@ -271,19 +273,19 @@ import { DocumentValidationError } from './errors.ts';
 export const createMapper = <T>(schema: Schema): Mapper<T> => ({
   toDocument(entity: Document): Document {
     const { valid, value, issues } = schema.parse(entity, { unknown: 'reject' });
-    if (!valid) throw new DocumentValidationError(issues);
+    if (!valid) throw new DocumentValidationError('Document does not match its schema', { issues });
     return bson.toDocument(schema, value);
   },
 
   fromDocument(document: Document): T {
     const { valid, value, issues } = bson.fromDocument(schema, document, { coerce: false });
-    if (!valid) throw new DocumentValidationError(issues);
+    if (!valid) throw new DocumentValidationError('Document does not match its schema', { issues });
     return value as T;
   },
 
   toUpdate(update: UpdateFilter<Document>): UpdateFilter<Document> {
     const { valid, issues } = bson.checkUpdate(schema, update as Update);
-    if (!valid) throw new DocumentValidationError(issues);
+    if (!valid) throw new DocumentValidationError('Document does not match its schema', { issues });
     return bson.toUpdate(schema, update as Update) as UpdateFilter<Document>;
   },
 });

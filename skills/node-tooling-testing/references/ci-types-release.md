@@ -212,7 +212,8 @@ jobs:
   then every newer Node line you claim. When the package manager cannot run on
   the floor (pnpm 10 needs 18.12, so not `>=18.0.0`), start at the lowest
   version it runs on, keep `engines` as it is, and record the gap and what it
-  leaves unchecked in the project's CLAUDE.md.
+  leaves unchecked in the project's CLAUDE.md. The tests then use only what
+  that version has (18.12: no `t.after`, no `mock.timers`).
 - oxlint and oxfmt declare `engines` of Node.js 20.19+ or 22.12+, so they stay
   out of a matrix that includes 18.
 - Keep Windows in the matrix for libraries that touch paths, fs or processes.

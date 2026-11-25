@@ -38,8 +38,7 @@ in `js-async-patterns`, threads and shared memory in `node-multithreading`.
 - Concurrency (N at once) is not the same as rate (N per interval). A
   semaphore is not a rate limiter; for rate, use a token bucket.
 - Under overload, answering "too busy" fast is better than hanging and
-  running out of memory. Queues must be bounded, waits must time out, and
-  limits belong in config, tuned by measured CPU and memory load.
+  running out of memory.
 
 ## Decision guide
 
@@ -242,7 +241,9 @@ const withdraw = async (cuid, amount) => {
 const withdrawAtomic = async (cuid, amount) => {
   const filter = { cuid, balance: { $gte: amount } };
   const result = await accounts.updateOne(filter, { $inc: { balance: -amount } });
-  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_INSUFFICIENT_FUNDS');
+  if (result.matchedCount === 0) {
+    throw new DomainError('Insufficient funds', { code: 'ALX_ERR_INSUFFICIENT_FUNDS' });
+  }
 };
 
 // 2. Optimistic concurrency, when the aggregate must decide
@@ -251,7 +252,9 @@ const withdrawChecked = async (cuid, amount) => {
   const balance = debit(account, amount);
   const update = { $set: { balance }, $inc: { rev: 1 } };
   const result = await accounts.updateOne({ cuid, rev: account.rev }, update);
-  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
+  if (result.matchedCount === 0) {
+    throw new DomainError('Account changed', { code: 'ALX_ERR_CONFLICT' });
+  }
 };
 
 // 3. In-memory state: no await between read and write

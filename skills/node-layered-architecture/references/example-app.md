@@ -100,15 +100,15 @@ Every module may import it. It has the same layers as a module.
 
 ```ts
 // src/shared/domain/domain-error.ts
-type DomainErrorOptions = { message?: string; cause?: unknown; details?: unknown };
+type DomainErrorOptions = ErrorOptions & { code?: string; details?: unknown };
 
 export class DomainError extends Error {
   readonly code: string;
   readonly details: unknown;
 
-  constructor(code: string, options: DomainErrorOptions = {}) {
-    const { message = code, cause, details = null } = options;
-    super(message, { cause });
+  constructor(message: string, options: DomainErrorOptions = {}) {
+    const { code = 'ALX_ERR_DOMAIN', details = null } = options;
+    super(message, options);
     this.name = 'DomainError';
     this.code = code;
     this.details = details;
@@ -200,13 +200,13 @@ import { LOGIN, PASSWORD_MIN_LENGTH } from './accounts.constants.ts';
 
 export const normalizeLogin = (login: string) => {
   const value = login.trim().toLowerCase();
-  if (!LOGIN.test(value)) throw new DomainError('ALX_ERR_VALIDATION', { message: 'Invalid login' });
+  if (!LOGIN.test(value)) throw new DomainError('Invalid login', { code: 'ALX_ERR_VALIDATION' });
   return value;
 };
 
 export const checkPassword = (password: string) => {
   if (password.length >= PASSWORD_MIN_LENGTH) return;
-  throw new DomainError('ALX_ERR_VALIDATION', { message: 'Password is too short' });
+  throw new DomainError('Password is too short', { code: 'ALX_ERR_VALIDATION' });
 };
 ```
 
@@ -239,12 +239,12 @@ export class Account {
 
   ensureCanSignIn() {
     if (!this.#state.blocked) return;
-    throw new DomainError('ALX_ERR_BLOCKED', { message: 'Account is blocked' });
+    throw new DomainError('Account is blocked', { code: 'ALX_ERR_BLOCKED' });
   }
 
   block() {
     if (this.#state.blocked) {
-      throw new DomainError('ALX_ERR_CONFLICT', { message: 'Already blocked' });
+      throw new DomainError('Already blocked', { code: 'ALX_ERR_CONFLICT' });
     }
     this.#state.blocked = true;
   }
@@ -333,7 +333,7 @@ export const createAccountsService = (deps: AccountsDeps) => {
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
     if (!account || !isMatch) {
-      throw new DomainError('ALX_ERR_AUTH', { message: 'Wrong credentials' });
+      throw new DomainError('Wrong credentials', { code: 'ALX_ERR_AUTH' });
     }
     account.ensureCanSignIn();
     const token = await sessions.start({ accountId: account.id });
@@ -414,7 +414,7 @@ export const createAccountsRepository = (
       await collection.insertOne({ cuid, login, passwordHash, blocked, v: 1, rev });
     } catch (error) {
       if ((error as { code?: number }).code !== DUPLICATE_KEY) throw error;
-      throw new DomainError('ALX_ERR_CONFLICT', { message: 'Login is taken' });
+      throw new DomainError('Login is taken', { code: 'ALX_ERR_CONFLICT' });
     }
   },
 

@@ -194,8 +194,8 @@ class Batch {
 
   writeOff(now) {
     const { status, expires } = this.#state;
-    if (status !== 'active') throw new DomainError('ALX_ERR_BATCH_STATE', { message: 'Inactive' });
-    if (expires >= now) throw new DomainError('ALX_ERR_BATCH_FRESH', { message: 'Not expired' });
+    if (status !== 'active') throw new DomainError('Inactive', { code: 'ALX_ERR_BATCH_STATE' });
+    if (expires >= now) throw new DomainError('Not expired', { code: 'ALX_ERR_BATCH_FRESH' });
     this.#state.status = 'writtenOff';
   }
 

@@ -318,7 +318,9 @@ const limitBytes = (maxBytes) =>
     let size = 0;
     for await (const chunk of source) {
       size += chunk.length;
-      if (size > maxBytes) throw new DomainError('ALX_ERR_PAYLOAD_TOO_LARGE');
+      if (size > maxBytes) {
+        throw new DomainError('Payload too large', { code: 'ALX_ERR_PAYLOAD_TOO_LARGE' });
+      }
       yield chunk;
     }
   };
@@ -326,7 +328,7 @@ const limitBytes = (maxBytes) =>
 const parseUpload = (request, payload, done) => {
   const declaredBytes = Number(request.headers['content-length'] ?? 0);
   if (declaredBytes > MAX_UPLOAD_BYTES) {
-    return void done(new DomainError('ALX_ERR_PAYLOAD_TOO_LARGE'));
+    return void done(new DomainError('Payload too large', { code: 'ALX_ERR_PAYLOAD_TOO_LARGE' }));
   }
   done(null, payload);
 };

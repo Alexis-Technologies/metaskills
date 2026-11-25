@@ -85,9 +85,9 @@ const STATUS_BY_CODE = {
 const logger = console; // Pino in an app
 
 class DomainError extends Error {
-  constructor(code, options = {}) {
-    const { message = code, cause, details = null } = options;
-    super(message, { cause });
+  constructor(message, options = {}) {
+    const { code = 'ALX_ERR_DOMAIN', details = null } = options;
+    super(message, options);
     this.name = 'DomainError';
     this.code = code;
     this.details = details;
@@ -115,7 +115,7 @@ const api = {
   },
   'room/send': ({ room, text }, client) => {
     if (!client.rooms.has(room)) {
-      throw new DomainError('ALX_ERR_FORBIDDEN', { message: 'Not a member' });
+      throw new DomainError('Not a member', { code: 'ALX_ERR_FORBIDDEN' });
     }
     const data = { user: client.session.userId, text };
     rooms.broadcast(room, 'room/message', data, client);

@@ -12,9 +12,9 @@ as a double.
 
 ```js
 class DomainError extends Error {
-  constructor(code, options = {}) {
-    const { message = code, cause, details = null } = options;
-    super(message, { cause });
+  constructor(message, options = {}) {
+    const { code = 'ALX_ERR_DOMAIN', details = null } = options;
+    super(message, options);
     this.name = 'DomainError';
     this.code = code;
     this.details = details;
@@ -41,7 +41,9 @@ class Money {
   }
 
   add(other) {
-    if (other.currency !== this.#currency) throw new DomainError('ALX_ERR_CURRENCY');
+    if (other.currency !== this.#currency) {
+      throw new DomainError('Currency mismatch', { code: 'ALX_ERR_CURRENCY' });
+    }
     return new Money(this.#amount + other.amount, this.#currency);
   }
 
@@ -91,17 +93,23 @@ class Order {
   }
 
   addLine(sku, price, quantity) {
-    if (this.#status !== 'draft') throw new DomainError('ALX_ERR_ORDER_STATE');
+    if (this.#status !== 'draft') {
+      throw new DomainError('Order is not a draft', { code: 'ALX_ERR_ORDER_STATE' });
+    }
     if (!Number.isInteger(quantity) || quantity <= 0) {
       const message = 'Quantity must be a positive integer';
-      throw new DomainError('ALX_ERR_QUANTITY', { message });
+      throw new DomainError(message, { code: 'ALX_ERR_QUANTITY' });
     }
     this.#lines.push({ sku, price, quantity });
   }
 
   submit() {
-    if (this.#status !== 'draft') throw new DomainError('ALX_ERR_ORDER_STATE');
-    if (this.#lines.length === 0) throw new DomainError('ALX_ERR_ORDER_EMPTY');
+    if (this.#status !== 'draft') {
+      throw new DomainError('Order is not a draft', { code: 'ALX_ERR_ORDER_STATE' });
+    }
+    if (this.#lines.length === 0) {
+      throw new DomainError('Order is empty', { code: 'ALX_ERR_ORDER_EMPTY' });
+    }
     this.#status = 'submitted';
   }
 
@@ -158,7 +166,9 @@ const createOrderRepository = (collection) => ({
     const { id: cuid, lines, status, rev } = order.toState();
     const $set = { status, lines: convert(lines, toLineDocument) };
     const result = await collection.updateOne({ cuid, rev }, { $set, $inc: { rev: 1 } }, options);
-    if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
+    if (result.matchedCount === 0) {
+      throw new DomainError('Order changed', { code: 'ALX_ERR_CONFLICT' });
+    }
   },
 });
 ```
@@ -179,7 +189,7 @@ Orchestrates and holds no rule:
 const createOrdersService = ({ orders, events }) => {
   const submitOrder = async ({ orderId }) => {
     const order = await orders.findById(orderId);
-    if (!order) throw new DomainError('ALX_ERR_NOT_FOUND', { message: 'Order not found' });
+    if (!order) throw new DomainError('Order not found', { code: 'ALX_ERR_NOT_FOUND' });
     order.submit();
     await orders.save(order);
     await events.publish({ type: 'OrderSubmitted', data: { orderId } });
@@ -215,13 +225,19 @@ class Account {
   }
 
   withdraw(amount) {
-    if (!Number.isInteger(amount) || amount <= 0) throw new DomainError('ALX_ERR_AMOUNT');
-    if (this.#balance < amount) throw new DomainError('ALX_ERR_INSUFFICIENT_FUNDS');
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new DomainError('Invalid amount', { code: 'ALX_ERR_AMOUNT' });
+    }
+    if (this.#balance < amount) {
+      throw new DomainError('Insufficient funds', { code: 'ALX_ERR_INSUFFICIENT_FUNDS' });
+    }
     this.#balance -= amount;
   }
 
   deposit(amount) {
-    if (!Number.isInteger(amount) || amount <= 0) throw new DomainError('ALX_ERR_AMOUNT');
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new DomainError('Invalid amount', { code: 'ALX_ERR_AMOUNT' });
+    }
     this.#balance += amount;
   }
 
@@ -231,7 +247,7 @@ class Account {
 }
 
 const moveFunds = (from, to, amount) => {
-  if (from.id === to.id) throw new DomainError('ALX_ERR_TRANSFER', { message: 'Same account' });
+  if (from.id === to.id) throw new DomainError('Same account', { code: 'ALX_ERR_TRANSFER' });
   from.withdraw(amount);
   to.deposit(amount);
 };

@@ -59,6 +59,9 @@ Decide before writing a `catch`.
   numeric codes on the wire: wrpc reads only a numeric `code`.
 - Create one class per abstraction layer (`DomainError`, `DalError`), or when an
   error needs behaviour. Do not create one empty class per case.
+- Every error class takes `(message, options = {})`, as `Error` does. `options`
+  holds `cause` and the class's own fields (`code`, `details`, `statusCode`),
+  and goes to `super` whole, so `cause` is set only when given.
 - Chain, do not forward: when an error crosses a layer, create a new one in that
   layer's vocabulary with `{ cause }`. Keep chains to 2-4 levels.
 - Create errors where they happen: the stack is captured at construction.
@@ -69,14 +72,16 @@ Decide before writing a `catch`.
 
 ```js
 class DomainError extends Error {
-  constructor(code, options = {}) {
-    const { message = code, cause, details = null } = options;
-    super(message, { cause });
+  constructor(message, options = {}) {
+    const { code = 'ALX_ERR_DOMAIN', details = null } = options;
+    super(message, options);
     this.name = 'DomainError';
     this.code = code;
     this.details = details;
   }
 }
+
+throw new DomainError('Login is taken', { code: 'ALX_ERR_CONFLICT', details: { login } });
 ```
 
 ## Return or throw
@@ -193,7 +198,9 @@ const signIn = async ({ login, password }) => {
   const account = await findByLogin(login);
   const hash = account === null ? DUMMY_HASH : account.passwordHash;
   const isValid = await verifyPassword(password, hash);
-  if (account === null || !isValid) throw new DomainError('ALX_ERR_AUTH');
+  if (account === null || !isValid) {
+    throw new DomainError('Wrong credentials', { code: 'ALX_ERR_AUTH' });
+  }
   return createSession(account);
 };
 ```
@@ -325,7 +332,7 @@ Record shape, retention, telemetry cost, and release safety nets:
 
 - [ ] Every `catch` handles a specific `code`, wraps with `cause`, or is a boundary.
 - [ ] Errors are `Error` instances with an `ALX_ERR_` `code`, one custom class per
-      layer at most.
+      layer at most, each constructed as `new X(message, { code, cause, ... })`.
 - [ ] Each entry point (HTTP, RPC, WebSocket, queue, cron, CLI) has one mapping
       function, and unknown errors become 500 with an `errorId`.
 - [ ] Responses never contain stack, `cause`, queries, or paths. Auth failures are

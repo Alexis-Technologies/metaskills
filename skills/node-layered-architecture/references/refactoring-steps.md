@@ -77,7 +77,9 @@ A check that appears in two services is an invariant that lost its owner.
 
 ```ts
 // Before: in the service
-if (account.balance < amount) throw new DomainError('ALX_ERR_INSUFFICIENT_FUNDS');
+if (account.balance < amount) {
+  throw new DomainError('Insufficient funds', { code: 'ALX_ERR_INSUFFICIENT_FUNDS' });
+}
 account.balance -= amount;
 
 // After: in the aggregate

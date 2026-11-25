@@ -31,7 +31,7 @@ was not queried: before pinning, compare with `pnpm view <package> version`, and
 | `@alexify/kerberos` | 4.3.0 | 18+ | released | authorization policies |
 | `@alexify/wrpc` | 2.2.0 | **22+** | released | realtime RPC |
 | `@alexify/migronaut` | 2.5.0 | **22.18+** | released | MongoDB migrations |
-| `@alexify/metaschema` | 3.4.1 | 18+ | released | single source of schemas |
+| `@alexify/metaschema` | 4.0.0 | 18+ | released | single source of schemas |
 | `@alexify/protoarray` | 2.1.0 | 18+ | released | positional JSON serialization |
 | `@alexify/mailer` | 1.2.1 | **22+** | released, email only | email and its reliability layer |
 | `@alexify/mailer` | 2.0 | **22+** | **unreleased**, branch `feature/messenger` | twelve more channels |
@@ -173,10 +173,13 @@ const { valid, value, issues } = Login.parse(body);
 - `toZod` and `toTypeBox` do not exist.
 - Generators live in `/generators` since 3.0: `model.dts` is `undefined` until its `register()` runs.
 - `format` needs `register()` of `/formats`, and `coerce` needs `register()` of `/coerce`.
-- The unknown-key error text changed in 3.x. Match on `issue.code === 'unexpected'`.
+- Match on `issue.code === 'unexpected'`, never on the text: an error line starts with the schema
+  name (`Field "Login" has unexpected keys: isAdmin`).
+- Thrown codes are `ALX_ERR_*` since 4.0, and a wrong call is a `SchemaUsageError`.
+- `maxErrors` has no limit by default: set it at a boundary.
 - A required field with a `default` stays in `required` of the JSON Schema.
 - `validate` functions are not exported, `decimals` needs `multipleOfPrecision` in Ajv, and `bigint`
-  has no JSON form.
+  makes `toJSONSchema` throw `ALX_ERR_UNREPRESENTABLE` (the mongodb target writes `long`).
 
 ## protoarray
 

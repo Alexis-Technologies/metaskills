@@ -178,7 +178,10 @@ CI and upgrades
   written exactly (`22.18.0`, not `22`); an app runs on its one Node version.
   When the package manager cannot run on the floor (pnpm 10 needs 18.12), the
   matrix starts at the lowest version it runs on, `engines` stays, and the
-  project's CLAUDE.md records the gap. Cache pnpm via `actions/setup-node`.
+  project's CLAUDE.md records the gap. The tests keep to that version: on
+  18.12 there is no `t.after` (18.13) and no `mock.timers` (18.19), so close
+  with an `after` hook or `try`/`finally` and inject the clock. Cache pnpm via
+  `actions/setup-node`.
   One aggregate job, required by branch protection, fails on a failed or
   skipped job.
 - Upgrade Node in a dedicated PR with a checklist: bump CI matrix and

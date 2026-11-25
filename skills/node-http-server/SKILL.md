@@ -176,7 +176,7 @@ const getJson = async (pool: Pool, path: string, signal: AbortSignal) => {
   const { statusCode, body } = await pool.request({ method: 'GET', path, signal });
   if (statusCode >= 400) {
     await body.dump();
-    throw new UpstreamError(statusCode);
+    throw new UpstreamError(`Upstream answered ${statusCode}`, { status: statusCode });
   }
   return body.json();
 };
@@ -227,12 +227,12 @@ with static files, errors, shutdown, HTTPS, SNI and HTTP/2 is in
 ```js
 const receiveBody = async (req, limitBytes) => {
   const declared = Number(req.headers['content-length']);
-  if (declared > limitBytes) throw new HttpError(413);
+  if (declared > limitBytes) throw new HttpError('Payload Too Large', { statusCode: 413 });
   const chunks = [];
   let sizeBytes = 0;
   for await (const chunk of req) {
     sizeBytes += chunk.length;
-    if (sizeBytes > limitBytes) throw new HttpError(413);
+    if (sizeBytes > limitBytes) throw new HttpError('Payload Too Large', { statusCode: 413 });
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);

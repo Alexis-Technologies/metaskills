@@ -90,7 +90,10 @@ const createBreaker = (fn, options = {}) => {
     const isOpen = failures >= threshold;
     if (isOpen) {
       const waitMs = resetMs - (now() - openedAt);
-      if (waitMs > 0 || isTrialRunning) throw new CircuitOpenError(name, Math.max(waitMs, 0));
+      if (waitMs > 0 || isTrialRunning) {
+        const retryAfterMs = Math.max(waitMs, 0);
+        throw new CircuitOpenError(`Circuit ${name} is open`, { retryAfterMs });
+      }
       isTrialRunning = true;
     }
     try {
@@ -112,8 +115,9 @@ const createBreaker = (fn, options = {}) => {
 };
 
 class CircuitOpenError extends Error {
-  constructor(name, retryAfterMs) {
-    super(`Circuit ${name} is open`);
+  constructor(message, options = {}) {
+    const { retryAfterMs = 0 } = options;
+    super(message, options);
     this.name = 'CircuitOpenError';
     this.code = 'ALX_ERR_UNAVAILABLE';
     this.retryAfterMs = retryAfterMs;

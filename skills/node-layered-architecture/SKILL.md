@@ -160,7 +160,7 @@ export const createAccountsService = (deps: AccountsDeps) => {
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
     if (!account || !isMatch) {
-      throw new DomainError('ALX_ERR_AUTH', { message: 'Wrong credentials' });
+      throw new DomainError('Wrong credentials', { code: 'ALX_ERR_AUTH' });
     }
     account.ensureCanSignIn();
     const token = await sessions.start({ accountId: account.id });
