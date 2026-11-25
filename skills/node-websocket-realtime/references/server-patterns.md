@@ -78,16 +78,19 @@ const { Rooms } = require('./rooms.js');
 const PING_INTERVAL_MS = 10000;
 const ALLOWED_ORIGINS = new Set(['https://app.example.com']);
 const sessions = new Map([['secret-token', { userId: 'marcus' }]]);
-const STATUS_BY_CODE = new Map([
-  ['EVALIDATION', 400],
-  ['EFORBIDDEN', 403],
-]);
+const STATUS_BY_CODE = {
+  ALX_ERR_VALIDATION: 400,
+  ALX_ERR_FORBIDDEN: 403,
+};
 const logger = console; // Pino in an app
 
 class DomainError extends Error {
-  constructor(code, message = code) {
-    super(message);
+  constructor(code, options = {}) {
+    const { message = code, cause, details = null } = options;
+    super(message, { cause });
+    this.name = 'DomainError';
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -112,7 +115,7 @@ const api = {
   },
   'room/send': ({ room, text }, client) => {
     if (!client.rooms.has(room)) {
-      throw new DomainError('EFORBIDDEN', 'Not a member');
+      throw new DomainError('ALX_ERR_FORBIDDEN', { message: 'Not a member' });
     }
     const data = { user: client.session.userId, text };
     rooms.broadcast(room, 'room/message', data, client);
@@ -120,10 +123,11 @@ const api = {
   },
 };
 
-// Expected errors carry a code; anything else is a bug: generic 500 + id
+// Domain errors carry a code, and the wire a numeric status, as in wrpc.
+// Anything else is a bug: generic 500 + id
 const toCallbackError = (error) => {
-  const status = STATUS_BY_CODE.get(error.code);
-  if (status) return { code: status, message: error.message };
+  const status = error instanceof DomainError ? STATUS_BY_CODE[error.code] : undefined;
+  if (status !== undefined) return { code: status, message: error.message };
   const errorId = crypto.randomUUID();
   logger.error({ err: error, errorId }, 'unhandled error');
   return { code: 500, message: 'Internal error', errorId };
@@ -233,25 +237,27 @@ process.on('SIGTERM', shutdown);
 ## Testing it with `node:test` and the global `WebSocket`
 
 ```js
-const test = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
 
-test('rejects upgrade without a session', async () => {
-  const ws = new WebSocket('ws://127.0.0.1:8000/ws');
-  const events = await once(ws, 'close');
-  assert.equal(events[0].code, 1006); // handshake refused with HTTP 401
-});
+describe('ws server', () => {
+  it('should reject an upgrade without a session', async () => {
+    const ws = new WebSocket('ws://127.0.0.1:8000/ws');
+    const events = await once(ws, 'close');
+    assert.equal(events[0].code, 1006); // handshake refused with HTTP 401
+  });
 
-test('room broadcast', async () => {
-  const headers = { cookie: 'token=secret-token' };
-  const ws = new WebSocket('ws://127.0.0.1:8000/ws', { headers });
-  await once(ws, 'open');
-  const args = { room: 'r1' };
-  ws.send(JSON.stringify({ type: 'call', id: '1', method: 'room/join', args }));
-  const messages = await once(ws, 'message');
-  assert.equal(JSON.parse(messages[0].data).type, 'event'); // room/joined comes first
-  ws.close();
+  it('should broadcast room/joined to a client that joins', async () => {
+    const headers = { cookie: 'token=secret-token' };
+    const ws = new WebSocket('ws://127.0.0.1:8000/ws', { headers });
+    await once(ws, 'open');
+    const args = { room: 'r1' };
+    ws.send(JSON.stringify({ type: 'call', id: '1', method: 'room/join', args }));
+    const messages = await once(ws, 'message');
+    assert.equal(JSON.parse(messages[0].data).type, 'event'); // room/joined comes first
+    ws.close();
+  });
 });
 ```
 

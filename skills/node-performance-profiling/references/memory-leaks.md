@@ -141,7 +141,7 @@ Collectability with `WeakRef` (the target is kept until the current job ends,
 so await a tick before `gc()`):
 
 ```js
-const test = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { setImmediate: tick } = require('node:timers/promises');
 
@@ -152,12 +152,14 @@ const isCollected = async (factory) => {
   return ref.deref() === undefined;
 };
 
-test('session object is released after close', async () => {
-  const collected = await isCollected(() => {
-    const session = { user: { id: 1 }, buffer: new Uint8Array(1024) };
-    return session;
+describe('session', () => {
+  it('should be released after close', async () => {
+    const collected = await isCollected(() => {
+      const session = { user: { id: 1 }, buffer: new Uint8Array(1024) };
+      return session;
+    });
+    assert.equal(collected, true);
   });
-  assert.equal(collected, true);
 });
 ```
 
@@ -170,12 +172,14 @@ const heapAfterGc = async () => {
   return process.memoryUsage().heapUsed;
 };
 
-test('1000 requests do not grow the heap', async () => {
-  await runRequests(100);
-  const before = await heapAfterGc();
-  await runRequests(1000);
-  const after = await heapAfterGc();
-  assert.ok(after - before < 1024 * 1024, `grew ${after - before} bytes`);
+describe('requests', () => {
+  it('should not grow the heap over 1000 requests', async () => {
+    await runRequests(100);
+    const before = await heapAfterGc();
+    await runRequests(1000);
+    const after = await heapAfterGc();
+    assert.ok(after - before < 1024 * 1024, `grew ${after - before} bytes`);
+  });
 });
 ```
 

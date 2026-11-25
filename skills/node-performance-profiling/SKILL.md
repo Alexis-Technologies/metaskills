@@ -269,7 +269,7 @@ Leak regression test (`node --expose-gc --test`) for an abort listener that a
 helper must remove:
 
 ```js
-const test = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { getEventListeners } = require('node:events');
 
@@ -288,10 +288,12 @@ const delay = (ms, signal) =>
     signal.addEventListener('abort', onAbort, { once: true });
   });
 
-test('delay does not accumulate abort listeners', async () => {
-  const { signal } = new AbortController();
-  for (let i = 0; i < 1000; i++) await delay(0, signal);
-  assert.equal(getEventListeners(signal, 'abort').length, 0);
+describe('delay', () => {
+  it('should not accumulate abort listeners', async () => {
+    const { signal } = new AbortController();
+    for (let i = 0; i < 1000; i++) await delay(0, signal);
+    assert.equal(getEventListeners(signal, 'abort').length, 0);
+  });
 });
 ```
 

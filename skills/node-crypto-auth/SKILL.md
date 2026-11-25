@@ -8,12 +8,12 @@ description: Password hashing, tokens, sessions, cookies, OAuth and SSO with nod
 Build authentication from `node:crypto`: slow salted password hashes that carry their own parameters,
 random tokens that the server can revoke at any moment, and constant-time comparisons.
 
-|           | Library `@alexify/*`            | App (`auth8`)                                               |
-| --------- | ------------------------------- | ----------------------------------------------------------- |
-| Crypto    | `node:crypto`, zero runtime deps | `node:crypto`; a vetted package for WebAuthn, TOTP, OAuth   |
-| Keys      | Constructor options             | 12-factor env, one schema (`node-config`), never logged      |
-| Sessions  | Store is injected               | MongoDB through the DAL, Redis as cache                     |
-| Transport | Caller decides                  | `@fastify/cookie`, `Authorization: Bearer`, wrpc sessions   |
+|  | Library `@alexify/*` | App (`auth8`) |
+| --- | --- | --- |
+| Crypto | `node:crypto`, zero runtime deps | `node:crypto`; a vetted package for WebAuthn, TOTP, OAuth |
+| Keys | Constructor options | 12-factor env, one schema (`node-config`), never logged |
+| Sessions | Store is injected | MongoDB through the DAL, Redis as cache |
+| Transport | Caller decides | `@fastify/cookie`, `Authorization: Bearer`, wrpc sessions |
 
 More code: [references/sessions.md](references/sessions.md) (revocable tokens, OAuth, scaling),
 [references/crypto-snippets.md](references/crypto-snippets.md) (HMAC, AES-GCM, random, TOTP),
@@ -259,14 +259,14 @@ const createAuth = ({ accounts, sessions, passwords }) => {
       await sessions.create(token, { accountId: account.id, ip });
       return { token };
     }
-    throw new DomainError('EAUTH');
+    throw new DomainError('ALX_ERR_AUTH');
   };
 
   return { signin };
 };
 ```
 
-`DomainError` and the mapping of `EAUTH` to 401 with one generic message come from `error-handling`.
+`DomainError` and the mapping of `ALX_ERR_AUTH` to 401 with one generic message come from `error-handling`.
 
 ### Cookies with Fastify
 

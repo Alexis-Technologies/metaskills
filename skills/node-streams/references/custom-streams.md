@@ -151,8 +151,8 @@ import { Writable } from 'node:stream';
 const createBatchWriter = (send) =>
   new Writable({
     writev(entries, callback) {
-      const chunks = new Array(entries.length);
-      for (let i = 0; i < entries.length; i++) chunks[i] = entries[i].chunk;
+      const chunks = [];
+      for (const entry of entries) chunks.push(entry.chunk);
       send(Buffer.concat(chunks)).then(() => callback(), callback);
     },
   });

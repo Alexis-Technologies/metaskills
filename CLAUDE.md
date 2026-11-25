@@ -73,9 +73,11 @@ Skills follow two profiles, and the project's own configuration wins over both:
 - **App** (`auth8` is the reference): ESM, TypeScript, Vitest, Onion + DDD, a DAL over the native
   MongoDB driver, Fastify.
 
-Both use oxlint and oxfmt, and neither uses array iteration methods in `src/`.
-`@alexify/metaschema` is the single source of truth for schemas. Documents carry the system fields
-`v` and `rev`.
+Both use oxlint and oxfmt, and neither uses array iteration methods in `src/`. Comparisons are
+strict, `null` included (`eqeqeq` without `null: ignore`), and a call-then-return is
+`return void fn()`, so `no-void` is off. Error codes start with `ALX_ERR_`, and every `it` title
+starts with `should`. `@alexify/metaschema` is the single source of truth for schemas. Documents
+carry the system fields `v` and `rev`, as auth8's ADR-017 defines them.
 
 This repository has **no tracked `.claude/` directory** and no symlinks to its own skills, so an
 agent does not load a draft as instructions while editing it. Read them directly instead:

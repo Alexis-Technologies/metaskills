@@ -86,20 +86,22 @@ in wrpc the `queue: { concurrency, size, timeout }` option of a procedure.
 ## MongoDB filter from validated input
 
 ```js
-const SORT_FIELDS = new Map([
-  ['name', 'name'],
-  ['created', 'createdAt'],
-]);
+const SORT_FIELDS = {
+  __proto__: null,
+  name: 'name',
+  created: 'createdAt',
+};
 
 const findUsers = (users, { tenantId, group, sort }) => {
-  const field = SORT_FIELDS.get(sort) ?? 'name';
+  const field = SORT_FIELDS[sort] ?? 'name';
   const filter = { tenantId, group: { $eq: group } };
   const options = { projection: { name: 1 }, sort: { [field]: 1 }, limit: 100, maxTimeMS: 2000 };
   return users.find(filter, options).toArray();
 };
 ```
 
-`$eq` compares the value literally, so `{ "$ne": null }` matches nothing instead of everything. It is
+`SORT_FIELDS` is keyed by a query value, so it has no prototype: `sort=constructor` falls back to
+`name`. `$eq` compares the value literally, so `{ "$ne": null }` matches nothing instead of everything. It is
 the second layer: the schema at the boundary should already have rejected a non-string `group`.
 `tenantId` comes from the session, never from the request.
 

@@ -260,8 +260,8 @@ const invoke = async (listener, args) => listener(...args);
 
 const emitAsync = (emitter, eventName, ...args) => {
   const listeners = emitter.listeners(eventName);
-  const promises = new Array(listeners.length);
-  for (let i = 0; i < listeners.length; i++) promises[i] = invoke(listeners[i], args);
+  const promises = [];
+  for (const listener of listeners) promises.push(invoke(listener, args));
   return Promise.all(promises);
 };
 

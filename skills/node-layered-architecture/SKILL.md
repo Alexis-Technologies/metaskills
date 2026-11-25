@@ -11,12 +11,12 @@ dependencies pointing inward, Fastify and the database at the edge. A module
 holds everything of its context, so deleting its folder removes the feature
 and copying it starts a service.
 
-|              | Library `@alexify/*`             | App (`auth8`)                                         |
-| ------------ | -------------------------------- | ----------------------------------------------------- |
-| Structure    | Flat `src/`, no layers           | Modules by business context, four layers in each      |
-| Dependencies | Constructor options, zero deps   | Injected through the `fastify-plugin` tree            |
-| Data         | Driver is injected               | Native `mongodb`, own DAL, one repository per aggregate |
-| Config       | Constructor options              | 12-factor, one schema (`node-config`), no `NODE_ENV`  |
+|  | Library `@alexify/*` | App (`auth8`) |
+| --- | --- | --- |
+| Structure | `src/` by subpath or feature, kebab-case file names, no layers | Modules by business context, four layers in each |
+| Dependencies | Constructor options, zero deps | Injected through the `fastify-plugin` tree |
+| Data | Driver is injected | Native `mongodb`, own DAL, one repository per aggregate |
+| Config | Constructor options | 12-factor, one schema (`node-config`), no `NODE_ENV` |
 
 The rest of this skill is the App profile.
 
@@ -159,7 +159,9 @@ export const createAccountsService = (deps: AccountsDeps) => {
     const account = await repository.findByLogin(normalizeLogin(login));
     const hash = account ? account.passwordHash : dummyHash;
     const isMatch = await hasher.verify(password, hash);
-    if (!account || !isMatch) throw new DomainError('Wrong credentials', 'EAUTH');
+    if (!account || !isMatch) {
+      throw new DomainError('ALX_ERR_AUTH', { message: 'Wrong credentials' });
+    }
     account.ensureCanSignIn();
     const token = await sessions.start({ accountId: account.id });
     return { token };
@@ -205,7 +207,7 @@ const guard = async (fastify: FastifyInstance, { sessions }: GuardOptions) => {
     const token = readToken(request.headers.authorization);
     request.session = token ? await sessions.restore(token) : null;
     if (isAllowed(request.routeOptions.config.access, request.session)) return;
-    return reply.code(403).send({ message: 'Forbidden' });
+    return reply.code(403).send({ error: { code: 'ALX_ERR_FORBIDDEN', message: 'Forbidden' } });
   });
 };
 

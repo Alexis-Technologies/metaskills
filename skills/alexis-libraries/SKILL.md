@@ -22,7 +22,7 @@ consumer is the Validation chain of `js-contracts-schemas`.
 
 ## Versions and status
 
-Read from each repository on 2026-11-21 (`package.json`, git tags, `CHANGELOG.md`). The npm registry
+Read from each repository on 2026-11-25 (`package.json`, git tags, `CHANGELOG.md`). The npm registry
 was not queried: before pinning, compare with `pnpm view <package> version`, and read
 `node_modules/<package>/package.json` before trusting an API detail.
 
@@ -34,10 +34,15 @@ was not queried: before pinning, compare with `pnpm view <package> version`, and
 | `@alexify/metaschema` | 3.4.1 | 18+ | released | single source of schemas |
 | `@alexify/protoarray` | 2.1.0 | 18+ | released | positional JSON serialization |
 | `@alexify/mailer` | 1.2.1 | **22+** | released, email only | email and its reliability layer |
+| `@alexify/mailer` | 2.0 | **22+** | **unreleased**, branch `feature/messenger` | twelve more channels |
 | `@alexify/syncom` | 0.0.1 | **24+** | **not published** | local-first sync engine |
+| `@alexify/messenger` | 0.0.1 | **22+** | **not published** | none: its channels go into mailer 2.0, and the repository will be archived |
 
 All are CommonJS with handwritten `.d.ts` and zero runtime dependencies. Hosts (Fastify, Redis, the
-MongoDB driver, BullMQ) are injected by the application.
+MongoDB driver, BullMQ) are injected by the application and checked by shape. A library declares a
+peer only for a package it requires lazily or takes from the caller, never at load time, and marks
+it optional when most consumers never use it: migronaut requires `mongodb` on first use and takes
+`mongoose` as an optional peer, and syncom's editor packages are optional peers the caller injects.
 
 ## Decision guide
 
@@ -48,9 +53,11 @@ MongoDB driver, BullMQ) are injected by the application.
 | Roles, ownership, tenancy, list filters | `kerberos` | authentication, rate limits |
 | Bidirectional calls, subscriptions, rooms, streams | `wrpc` | public or CRUD API: REST stays |
 | One-time data change, in order, with rollback | `migronaut` migration | indexes only: declared collection |
+| Rewrite documents to a new shape `v` | `migronaut` background migration, or a BullMQ job | lazy migration on read |
 | Current indexes and validators of a collection | `migronaut converge` | experimental: review the plan |
 | Fewer bytes for repeated records on a shared schema | `protoarray` | public APIs, low-volume endpoints |
-| Transactional email with retries and delivery events | `mailer` | SMS, chat, push: not released |
+| Transactional email with retries and delivery events | `mailer` 1.x | SMS, chat, push: not released |
+| SMS, chat apps, push | nothing yet: `mailer` 2.0 is unreleased | `@alexify/messenger`: never published |
 | Email that must go out when a write commits | `mailer/mongodb` outbox | no replica set |
 | Offline-first, CRDT sync | `syncom`, **experiments only** | anything shipping today |
 
@@ -75,7 +82,7 @@ MongoDB driver, BullMQ) are injected by the application.
   never crosses a major.
 - Validate at the boundary with metaschema, authorize with Kerberos, then run domain code. Keep that
   order on every transport.
-- Never advise installing `@alexify/syncom`.
+- Never advise installing `@alexify/syncom`, `@alexify/messenger` or an unreleased mailer 2.0.
 - Inject hosts and drivers. Do not add a runtime dependency to a library to reach one.
 - Match errors on `code`, never on the message text.
 - Release what a kit opens: `migrator.disconnect()`, `server.close({ drain })`, `worker.close()`.
@@ -145,6 +152,8 @@ try {
 - Generate validators and indexes from the metaschema model. Declare `v`, `rev` and the timestamps in
   the model, since the validator is closed.
 - Declared collections and versioning are experimental.
+- A shape change (a new `v`) runs out of band: a background migration, or the BullMQ job of
+  auth8's ADR-017 (`node-data-access`). migronaut keeps the indexes and validators either way.
 
 ## metaschema
 
@@ -204,7 +213,9 @@ if (!receipt.successful) logger.error({ errors: receipt.errorMessages }, 'send f
 - `send` reports a failure in the receipt. Check `successful`.
 - `deliveryUnknown` means the provider may have the message. Never resend it by hand.
 - Webhooks are verified over the **raw body**: keep a `Buffer` for that route.
-- 1.x is email only. The channel subpaths are unreleased.
+- **Target 1.x.** 2.0 sends SMS, RCS, WhatsApp, chat apps and push through the same receipts,
+  queue and audit, but it is unreleased (branch `feature/messenger`): never advise installing it.
+  Its API, and what it renames (`createMailQueue` becomes `createQueue`), are in the reference.
 
 ## syncom
 
@@ -221,7 +232,8 @@ A realtime write in an app:
 2. A `preValidation` hook asks `kerberos`.
 3. The metaschema `Schema` passed as `input` validates and applies defaults.
 4. The handler calls the service. The aggregate enforces invariants.
-5. The DAL maps with `toDocument`, guards updates with `checkUpdate` and filters on `rev`.
+5. The DAL maps with `toDocument`, guards updates with `checkUpdate`, and filters on `rev` where
+   the aggregate uses optimistic concurrency.
 6. `mailer` enqueues into the outbox in the same transaction.
 7. `migronaut` owns the indexes and validators of those collections.
 
@@ -238,7 +250,7 @@ A realtime write in an app:
 - Letting migronaut versioning default its field names in an Alexis collection.
 - Reordering fields of a protoarray schema.
 - Resending an email marked `deliveryUnknown`.
-- `pnpm add @alexify/syncom`.
+- `pnpm add @alexify/syncom`, or a dependency on `@alexify/messenger` or mailer 2.0.
 
 ## Checklist
 
@@ -251,7 +263,7 @@ A realtime write in an app:
 - [ ] Transactions pass `{ session }` on every driver call.
 - [ ] protoarray schemas only grow at the end.
 - [ ] Email goes through a queue, and receipts are checked.
-- [ ] syncom is not a dependency of anything shipping.
+- [ ] syncom, messenger and mailer 2.0 are not dependencies of anything shipping.
 
 Related skills: `js-contracts-schemas`, `metautil-data-structures`, `node-access-control`,
 `node-data-access`, `node-websocket-realtime`, `js-local-first-sync`, `node-graceful-shutdown`,

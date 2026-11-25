@@ -16,6 +16,27 @@ measured hot code, readability wins.
   ordered objects, aliases, and numeric strings into one shape, and business code sees only that
   shape. Polymorphism then lives in one function
 
+## Safety and performance
+
+Rules from the Alexis libraries, where a fast-looking spelling was a failure mode or a guess:
+
+- Never spread a data array into arguments: `out.push(...items)`, `Math.max(...values)`,
+  `fn(...list)` and `fn.apply(null, list)` throw `RangeError: Maximum call stack size exceeded`
+  past the engine's argument limit (about 125 000 elements on Node.js 24 with the default stack,
+  [v8-facts.md](v8-facts.md)). A peer or a data set decides that length, so a large fan-in becomes a
+  hard failure. Loop with `push`, or `concat`. Forwarding rest parameters (`(...args) => fn(...args)`)
+  is fine: the caller wrote those arguments
+- A `switch` that dispatches to real handler calls stays a `switch` on a hot path. Measured in wrpc
+  (`bench/dispatch.js`): with a handler call in the loop, a `switch` and an `if` chain were level and
+  a table of handler functions was about 25% slower, because V8 inlines through a `switch` but not
+  through a function value read from a table. Lookup tables (SKILL.md) pick values or allow late
+  registration; order a long chain by frequency before rewriting it
+- `new Array(n)` for speed only with a benchmark cited next to it; otherwise build a packed array
+  with a literal or `push` (see Arrays). Slots written by index out of order (results kept in
+  input order as tasks finish) are its other legitimate use
+- A hand-optimization cites its benchmark in a comment (`// measured in bench/unmask.js`), and the
+  benchmark stays in the repository. An unmeasured one only makes the code harder to read
+
 ## Object shapes, hidden classes, and inline caches
 
 - Objects with the same properties added in the same order can share a V8 hidden
@@ -37,9 +58,10 @@ up to four hidden classes before it becomes megamorphic. In hot paths, use
 
 - Arrays have one element kind and no holes. Element kinds tend to generalize
   (integer -> double -> any, packed -> holey), so do not rely on them narrowing
-  again. Build with a literal, `push`, `Array.from({ length }, fn)`, or
-  `new Array(n).fill(value)`; never leave `new Array(n)` unfilled, write past
-  `length`, or grow by setting `length`; do not mix integers, doubles, and
+  again. Build with a literal, `push`, or `Array.from({ length }, fn)`.
+  Preallocate with `new Array(n)` only in the cases of Safety and performance:
+  unfilled it is holey, and `fill` packs it only from V8 13.6 (Node.js 24). Never write past
+  `length` or grow by setting `length`; do not mix integers, doubles, and
   objects in one array
 - Integer arrays stay integer: normalize `-0` to `0` and reject `NaN` and `Infinity` before storing; one such value turns the whole array into doubles
 - Never read past the end: `i < list.length`, never `i <= list.length`, never
@@ -115,8 +137,9 @@ current target runtime when iteration matters:
 - Avoid `.forEach`; it is usually the slowest direct array traversal. Use a
   loop for side effects or state changes
 - Outside `src/`, a pure `.reduce` is fine for reductions; current engines optimize it well
-- Avoid `Object.entries` and `Map` entry iteration. For `Map`, iterate
-  `keys()` or `values()`. If both are needed, iterate keys and call `map.get`
+- `Object.entries` only outside hot paths and library `src/`. For a `Map`, iterate `keys()` or
+  `values()` for one side and `for (const entry of map)` for both; switch to `keys()` plus
+  `map.get` only where a benchmark of that hot path shows the gain
 - Use `slice()` or `[...list]` for an array copy and `concat()` for an array join; avoid `[...a, ...b]`
 
 ## Measuring

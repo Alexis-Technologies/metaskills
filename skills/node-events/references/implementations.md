@@ -122,8 +122,8 @@ class AsyncEmitter {
     const listeners = [...event.on, ...event.once];
     event.once.clear();
     if (event.on.size === 0) this.#events.delete(name);
-    const promises = new Array(listeners.length);
-    for (let i = 0; i < listeners.length; i++) promises[i] = invoke(listeners[i], args);
+    const promises = [];
+    for (const listener of listeners) promises.push(invoke(listener, args));
     return Promise.all(promises);
   }
 

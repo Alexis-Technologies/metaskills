@@ -88,7 +88,9 @@ fastify.wrpc.broadcast('system/announce', { text: 'maintenance in 5m' });
 
 Hook phases in order: `onRequest`, then the session gate, `preValidation`, input validation,
 `preHandler`, the handler, `preSerialization`, output validation, `onSend`, `onResponse`. There is no
-`(context, next)` chain: a hook returns or throws an error with a numeric `code`.
+`(context, next)` chain: a hook returns or throws an error with a numeric `code`. That number is
+the wire status, the wire exception to `ALX_ERR_` string codes: a domain error with a string code
+reaches the client as 500 unless the procedure maps it (`node-websocket-realtime`).
 
 `context` has `client`, `session`, `server`, `signal`, `state`, `uuid`, `method`, `procedure`.
 

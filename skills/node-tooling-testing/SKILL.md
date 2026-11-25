@@ -76,23 +76,29 @@ Quality gate and scripts
   `pre`/`post` hooks, so CI keeps `pnpm run`.
 - Never add `--test-force-exit` or `process.exit()` to hide leaked handles;
   close servers, timers, sockets and pools in `after` hooks.
+  `--test-force-exit` is allowed only with a documented reason: a handle the
+  code cannot close (one a third-party module keeps open).
 
 Tests
 
 - Test the public contract of a module, not its private fields.
-- **Library**: `node:test` (`describe`/`it`) and `node:assert/strict`, in
+- Both profiles: only `describe` and `it`, never a flat `test()`.
+  `describe` names the subject, and every `it` title starts with `should`
+  plus the observable behaviour (Playwright's `test` takes the same titles).
+- **Library**: `node:test` and `node:assert/strict`, in
   `tests/unit/*.test.js`.
-- **App**: Vitest in `src/**/tests/*.test.ts`. `describe` names the subject,
-  every title starts with `should` plus the observable behaviour, and the
-  body follows Arrange, Act, Assert, visibly separated. E2E lives in `e2e/`
-  and load scripts in `load/`.
+- **App**: Vitest in `src/**/tests/*.test.ts`. The body follows Arrange,
+  Act, Assert, visibly separated. E2E lives in `e2e/` and load scripts in
+  `load/`.
 - Assert errors precisely: `assert.throws(fn, { code, name, message })`,
-  `await assert.rejects(promise, { code: 'ETIMEOUT' })`,
+  `await assert.rejects(promise, { code: 'ALX_ERR_TIMEOUT' })`,
   `await expect(promise).rejects.toMatchObject({ code })`. Never
   `try { ... } catch {}` without a failing assertion.
 - No real waiting, clock, network or randomness: use `mock.timers` or
   `vi.useFakeTimers()`, inject clocks and ids, and keep
-  `AbortSignal.timeout()` as a safety net on network calls.
+  `AbortSignal.timeout()` as a safety net on network calls. Real I/O settles
+  through one deadline-based `waitFor`; a sleep only proves that nothing
+  more arrives.
 - Prefer fakes passed through dependency injection (factory arguments,
   constructors, ports) over module mocking. Use `mock.fn`, `t.mock.method`
   or `vi.fn` for spies. `vi.mock` and `mock.module` (which needs
@@ -113,9 +119,11 @@ Tests
 Lint and format
 
 - oxlint (`.oxlintrc.json`) and oxfmt (`.oxfmtrc.json`, `.editorconfig`), in
-  libraries and apps. oxlint holds no stylistic rules: formatting belongs to
-  oxfmt alone.
-- Fix `unicorn/no-nested-ternary` with `if`/`else` or a named value. Oxfmt
+  libraries and apps. Formatting belongs to oxfmt; the lint holds code
+  rules, `curly`, `func-style` and `object-shorthand` among them. A project
+  copies the reference config of
+  [references/ci-types-release.md](references/ci-types-release.md).
+- Fix `no-nested-ternary` with `if`/`else` or a named value. Oxfmt
   strips grouping parentheses, so a parens-only fix comes back on the next
   format.
 - Suppress a rule only for an intentional construct, with
@@ -130,8 +138,9 @@ Types
   and test it with tsd in `tests/types/*.test-d.ts` (`expectType`,
   `expectError`). Review it with the exports in the same PR.
 - **App**: TypeScript with `strict`, `module: NodeNext`,
-  `verbatimModuleSyntax` and `tsc --noEmit` in `typecheck`. Use `as const`
-  objects, not `enum`.
+  `verbatimModuleSyntax` and `tsc --noEmit` in `typecheck`. Relative imports
+  end in `.js` (`'../users.routes.js'`), which NodeNext resolves to the `.ts`
+  source. Use `as const` objects, not `enum`.
 - JSDoc only when very short and to the point. It does not replace `.d.ts`.
 - Keep `typescript` and `@types/node` in `devDependencies`; match
   `@types/node` to the lowest Node major you support, so typings do not
@@ -139,9 +148,10 @@ Types
 - TypeScript run directly by Node (22.18+, 24): type stripping removes types
   but never checks them, so `tsc --noEmit` stays in the gate. Use only
   erasable syntax: no `enum`, `namespace` with code, parameter properties,
-  `import =`; write `import type` for type-only imports and full `.ts`
-  extensions in relative imports; `tsconfig` paths are ignored; `.ts` files
-  inside `node_modules` are not stripped.
+  `import =`; write `import type` for type-only imports. Node does not map a
+  `.js` specifier to a `.ts` file, so app code runs from the build or under
+  Vitest, and only a script run from source names `.ts` files; `tsconfig`
+  paths are ignored; `.ts` files inside `node_modules` are not stripped.
 - Use a real build (`tsc`) to publish or deploy compiled JS. An app sets
   `rewriteRelativeImportExtensions` in its build config.
 
@@ -162,8 +172,10 @@ Runtime tooling
 CI and upgrades
 
 - CI runs `pnpm install --frozen-lockfile` and the project's gates on every
-  pull request. A library tests every Node line in `engines.node`; an app
-  runs on its one Node version. Cache pnpm via `actions/setup-node`.
+  pull request. A library tests every Node line in `engines.node`, the
+  floor written exactly (`22.18.0`, not `22`); an app runs on its one Node
+  version. Cache pnpm via `actions/setup-node`. One aggregate job, required
+  by branch protection, fails on a failed or skipped job.
 - Upgrade Node in a dedicated PR with a checklist: bump CI matrix and
   `engines`, regenerate the lockfile in its own commit, run once with
   `--throw-deprecation` and `--pending-deprecation`, remove flags that became
@@ -189,13 +201,13 @@ const CASES = [
 
 describe('ipToInt', () => {
   for (const { ip, expected, name } of CASES) {
-    it(`converts ${name}`, () => {
+    it(`should convert ${name}`, () => {
       assert.equal(ipToInt(ip), expected);
     });
   }
 
-  it('rejects wrong input', () => {
-    assert.throws(() => ipToInt(42), { name: 'TypeError' });
+  it('should reject wrong input', () => {
+    assert.throws(() => ipToInt(42), { code: 'ALX_ERR_INVALID_IP' });
     assert.throws(() => ipToInt('1.2.3'), { message: 'Wrong IPv4 format' });
   });
 });
@@ -204,22 +216,24 @@ describe('ipToInt', () => {
 Library: timers and spies without real waiting.
 
 ```js
-const { test } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createSessions } = require('../../src/session.js');
 
-test('session expires after ttl', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const storage = { save: t.mock.fn(async () => true), delete: t.mock.fn() };
-  const sessions = createSessions({ storage, ttlMs: 1000 });
-  await sessions.start('token1', { userId: 1 });
-  assert.equal(storage.save.mock.callCount(), 1);
-  t.mock.timers.tick(999);
-  assert.ok(sessions.has('token1'));
-  t.mock.timers.tick(1);
-  assert.ok(!sessions.has('token1'));
-  assert.equal(storage.delete.mock.callCount(), 1);
+describe('createSessions', () => {
+  it('should expire a session after the ttl', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const storage = { save: t.mock.fn(async () => true), delete: t.mock.fn() };
+    const sessions = createSessions({ storage, ttlMs: 1000 });
+    await sessions.start('token1', { userId: 1 });
+    assert.equal(storage.save.mock.callCount(), 1);
+    t.mock.timers.tick(999);
+    assert.ok(sessions.has('token1'));
+    t.mock.timers.tick(1);
+    assert.ok(!sessions.has('token1'));
+    assert.equal(storage.delete.mock.callCount(), 1);
+  });
 });
 ```
 
@@ -230,7 +244,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { usersRoutes } from '../users.routes.ts';
+import { usersRoutes } from '../users.routes.js';
 
 describe('GET /users/:id', () => {
   let app: FastifyInstance | null = null;
@@ -261,7 +275,7 @@ More recipes:
 
 - [references/node-test-cookbook.md](references/node-test-cookbook.md): hooks,
   `t.plan`, mocks, snapshots, c8, reporters, a real HTTP server on port `0`,
-  stress tests, CLI tests.
+  stress tests, CLI tests, and the rules for suites, fixtures and CI.
 - [references/app-testing.md](references/app-testing.md): Vitest config, names,
   fakes, coverage, fake clocks, `inject`, MongoDB integration, benchmarks.
 - [references/e2e-load.md](references/e2e-load.md): Playwright, autocannon, k6
@@ -275,10 +289,10 @@ More recipes:
 - Jest, Mocha, ts-node or nodemon added to a project: extra dependencies and
   transforms that differ from runtime. A library uses the built-ins, an app
   uses Vitest.
-- ESLint, Prettier or stylistic lint rules next to oxfmt: two sources of
-  truth for one concern.
+- ESLint or Prettier next to oxlint and oxfmt, or a lint rule that formats
+  (spacing, quotes, line breaks): two sources of truth for one concern.
 - `setTimeout(..., 1000)` or `await sleep()` in tests: slow and flaky. Use
-  fake timers or events (`await once(emitter, 'ready')`).
+  fake timers, events (`await once(emitter, 'ready')`) or `waitFor`.
 - Tests that share state through module scope or depend on execution order:
   pass fresh fixtures to each test; reset in `beforeEach`.
 - `vi.mock` of an own module where a port could take a fake.
@@ -300,17 +314,18 @@ More recipes:
 ## Checklist
 
 - [ ] The gates were read from `prepublishOnly` and CI, run, and are green.
-- [ ] Linting is oxlint, formatting is oxfmt, and no stylistic lint rules.
+- [ ] Linting is oxlint with the reference config; formatting is oxfmt alone.
 - [ ] Library tests use `node:test` + c8; app tests use Vitest.
-- [ ] App tests: `should` titles, AAA, DI fakes, `inject` for routes.
+- [ ] `describe`/`it` only, and every `it` title starts with `should`.
+- [ ] App tests: AAA, DI fakes, `inject` for routes.
 - [ ] No real sleeps, clock or randomness; network calls have a timeout.
 - [ ] Every test closes what it opens (servers, timers, pools, watchers).
 - [ ] Pure functions have table-driven cases incl. negative and boundary inputs.
 - [ ] At least one integration test exercises the real transport or `inject`.
 - [ ] Error assertions check `code`/`name`/`message`, not just "throws".
 - [ ] `.d.ts` checked by `check:dts` and tsd; `types` and `files` point at it.
-- [ ] TS run by Node uses erasable syntax only, `import type`, `.ts` extensions.
-- [ ] CI uses `--frozen-lockfile` on all lines of `engines`.
+- [ ] App relative imports end in `.js`; TS run by Node is erasable only.
+- [ ] CI uses `--frozen-lockfile` on all lines of `engines`, the floor exact.
 - [ ] `--watch`, `--env-file`, snapshots update flags never used in production.
 - [ ] Node upgrades done via the checklist in a separate PR.
 

@@ -257,8 +257,7 @@ const runActor = () => {
   const handle = async ({ command, data }) => {
     if (command === 'stop') {
       await actor.exit();
-      parentPort.close();
-      return;
+      return void parentPort.close();
     }
     await actor.message(data);
     parentPort.postMessage({ command: 'ready' });

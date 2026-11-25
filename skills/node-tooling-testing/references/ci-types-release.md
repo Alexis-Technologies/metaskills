@@ -20,8 +20,13 @@ skill.
 }
 ```
 
-`.oxlintrc.json`, trimmed. There are no stylistic rules. The array-method ban
-applies to `src/`, so tests, scripts and benchmarks turn it off.
+`.oxlintrc.json`, trimmed: the reference a project copies. Formatting belongs
+to oxfmt; the lint holds code rules, `curly`, `func-style` and
+`object-shorthand` among them. `eqeqeq` takes no `null` option, so
+"null or undefined" is `x === undefined || x === null`. `no-void` stays off:
+`return void fn()` is the call-then-return form. The array-method ban applies
+to `src/`; tests under `src/` (an app's `src/**/tests/`), scripts and
+benchmarks are outside it.
 
 ```json
 {
@@ -31,19 +36,52 @@ applies to `src/`, so tests, scripts and benchmarks turn it off.
   "env": { "builtin": true, "es2026": true, "node": true },
   "ignorePatterns": ["node_modules", "coverage", "dist", "**/*.d.ts", "**/*.test-d.ts"],
   "rules": {
-    "no-var": "error",
-    "no-restricted-properties": [
-      "error",
-      { "property": "forEach", "message": "Use a loop." },
-      { "property": "map", "message": "Use a loop." },
-      { "property": "filter", "message": "Use a loop." },
-      { "property": "reduce", "message": "Use a loop that does the work in one pass." }
-    ]
+    "no-var": "warn",
+    "object-shorthand": ["warn", "properties"],
+    "curly": ["error", "multi-line"],
+    "eqeqeq": ["error", "always"],
+    "prefer-const": ["error", { "destructuring": "all" }],
+    "func-style": ["error", "expression"],
+    "max-depth": ["error", { "max": 4 }],
+    "no-nested-ternary": "error",
+    "no-console": "error"
   },
   "overrides": [
     {
-      "files": ["tests/**", "scripts/**", "bench/**"],
-      "rules": { "no-restricted-properties": "off", "no-console": "off" }
+      "files": ["src/**"],
+      "plugins": ["unicorn"],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          { "property": "forEach", "message": "Use a loop in one pass." },
+          { "property": "map", "message": "Use a loop in one pass." },
+          { "property": "filter", "message": "Use a loop in one pass." },
+          { "property": "some", "message": "Use a loop in one pass." },
+          { "property": "every", "message": "Use a loop in one pass." },
+          { "property": "find", "message": "Use a loop in one pass." },
+          { "property": "findIndex", "message": "Use a loop in one pass." },
+          { "property": "findLast", "message": "Use a loop in one pass." },
+          { "property": "findLastIndex", "message": "Use a loop in one pass." },
+          { "property": "reduce", "message": "Use a loop in one pass." },
+          { "property": "reduceRight", "message": "Use a loop in one pass." },
+          { "property": "flatMap", "message": "Use a loop in one pass." }
+        ],
+        "unicorn/no-array-for-each": "error",
+        "unicorn/no-array-reduce": "error",
+        "unicorn/prefer-set-has": "error"
+      }
+    },
+    {
+      "files": ["src/**/tests/**", "src/**/*.test.*", "src/**/*.spec.*"],
+      "rules": {
+        "no-restricted-properties": "off",
+        "unicorn/no-array-for-each": "off",
+        "unicorn/no-array-reduce": "off"
+      }
+    },
+    {
+      "files": ["bin/**", "scripts/**", "bench/**"],
+      "rules": { "no-console": "off" }
     }
   ]
 }
@@ -124,10 +162,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: [18, 20, 22, 24]
+        # engines.node is ">=18.20.0": its floor exactly, then each newer line
+        node-version: ['18.20.0', 20, 22, 24]
         exclude:
           - os: windows-latest
-            node-version: 18
+            node-version: '18.20.0'
           - os: windows-latest
             node-version: 20
     steps:
@@ -152,15 +191,28 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:coverage
+
+  ci-success:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint, test, coverage]
+    if: always()
+    steps:
+      - name: Fail when a needed job failed, was cancelled or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - run: echo "All CI jobs passed"
 ```
 
-- Matrix = every Node line you claim in `engines.node`.
+- Matrix = the floor of `engines.node` written exactly (`'22.18.0'` for
+  `>=22.18.0`; `22` is the newest 22.x and proves nothing about the floor),
+  then every newer Node line you claim.
 - oxlint and oxfmt declare `engines` of Node.js 20.19+ or 22.12+, so they stay
   out of a matrix that includes 18.
 - Keep Windows in the matrix for libraries that touch paths, fs or processes.
-- Add one aggregate job (`needs: [...]`, failing on any failed or skipped
-  need) and require only it in branch protection, so a new matrix leg is not
-  silently un-required.
+- The aggregate job (`ci-success` above) fails on any failed, cancelled or
+  skipped need; a skipped job is not a passed one. Require only it in branch
+  protection, so a new matrix leg is not silently un-required.
 
 An app (`auth8`) runs one Node version, in this order:
 
@@ -290,11 +342,14 @@ adds `"outDir"` and `"rewriteRelativeImportExtensions": true`.
   (`constructor(private x: number)`), `import x = require()`, legacy
   decorators. `--experimental-transform-types` enables the first ones but is
   experimental; prefer plain objects with `as const` and explicit fields.
-- `import { User } from './types.ts'` where `User` is an interface fails at
-  runtime ("does not provide an export named"); write `import type`.
-  `verbatimModuleSyntax` makes `tsc` enforce this.
-- Relative imports need the real extension (`./service.ts`); tsconfig
-  `paths` and `baseUrl` are ignored; use package `imports` (`#lib/*`).
+- A value import of an interface (`import { User }` from a types module)
+  fails at runtime ("does not provide an export named"); write
+  `import type`. `verbatimModuleSyntax` makes `tsc` enforce this.
+- Node resolves the real file name: a `.js` specifier does not reach a `.ts`
+  file. App code writes `.js` (NodeNext) and runs from the build, so only a
+  script run from source names its `.ts` files, with
+  `allowImportingTsExtensions`. tsconfig `paths` and `baseUrl` are ignored;
+  use package `imports` (`#lib/*`).
 - `.ts` files under `node_modules` are not stripped: publish compiled JS
   and `.d.ts`.
 - Type checking still needs `tsc --noEmit`; `erasableSyntaxOnly` (TS 5.8+)

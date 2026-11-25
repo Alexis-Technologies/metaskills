@@ -19,6 +19,7 @@ versions, so re-run before relying on them.
 | Class with declared fields keeps one map despite branches | True | `y = null` declared, `if (flag) this.y = 2` -> same map |
 | Changing a field type creates a per-object shape | False | V8 generalizes the field for all objects of the map (Smi -> Double -> Tagged), dependent code deopts |
 | `Object.create(null)` objects are fast-mode | False | starts in dictionary mode; building `{a, b}` that way is 7-12x slower than a literal |
+| `{ __proto__: null, x: 1 }` literals are fast-mode | False | dictionary mode from the start, like `Object.create(null)`: right for a dictionary, wrong for a record |
 | Objects with computed keys go dictionary | True | at the 20th `obj['k' + i] = i` |
 | Polymorphic IC holds up to 4 maps | True | `--max-valid-polymorphic-map-count=4`; 2M loads: 1 map 1.5 ms, 2: 2.1, 4: 3.5, 5: 6.6, 8: 6.6 |
 | Getter with a simple body is as fast as a field | True | 0.30 vs 0.31 ms |
@@ -67,6 +68,9 @@ versions, so re-run before relying on them.
 | ternary vs `if` | 0.84 vs 0.85 ms |
 | `var` loop vs `let` loop | 36.4 vs 37.0 ms |
 
+- `out.push(...list)` and `Math.max(...list)` passed with 100 000 elements and
+  threw `RangeError: Maximum call stack size exceeded` with 125 000 (default
+  stack size).
 - `--trace-turbo-inlining` shows functions with `try/catch` and with three
   `return` statements inlined into their caller.
 - Loop over 100 numbers, 1M times: indexed `for` 37 ms, `reduce` 34 ms,

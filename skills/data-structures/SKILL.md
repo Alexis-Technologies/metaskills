@@ -3,8 +3,9 @@ name: data-structures
 description: Custom JS data structures (queues, deques, lists, ring buffers, tries, heaps, graphs, LRU caches, CRDTs, pools). Use when Map, Set or Array are not enough
 ---
 
-<!-- Adapted from metaskills v1.0.6 (skills/data-structures): the G-Counter sums with a loop,
-     as js-conventions asks of library code. -->
+<!-- Adapted from metaskills v1.0.6 (skills/data-structures): the G-Counter sums with a loop
+     and the heap swaps through a local instead of array destructuring, as js-conventions asks
+     of library code. -->
 
 # Custom Data Structures (JavaScript)
 
@@ -269,7 +270,9 @@ class MinHeap {
     return 2 * i + 2;
   }
   #swap(i, j) {
-    [this.#data[i], this.#data[j]] = [this.#data[j], this.#data[i]];
+    const item = this.#data[i];
+    this.#data[i] = this.#data[j];
+    this.#data[j] = item;
   }
 
   push(value) {

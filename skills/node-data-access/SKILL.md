@@ -18,13 +18,13 @@ built from input or a driver error.
 | Driver | Injected, no runtime dependency | Native `mongodb`, no ODM |
 | Layer | Takes a collection or client | Own DAL, one repository per aggregate |
 | Schema | `@alexify/metaschema` | `@alexify/metaschema`, validators generated from it |
-| Migrations | None | `@alexify/migronaut` |
+| Migrations | None | `@alexify/migronaut`; shape migrations also as a BullMQ job |
 
 Read when needed:
 
 - [references/repository.md](references/repository.md): base repository, aggregate repository, mapper
 - [references/schema-migrations.md](references/schema-migrations.md): model, `$jsonSchema`, indexes,
-  migrations, shape versions
+  migrations, shape versions, the BullMQ shape job
 - [references/document-conventions.md](references/document-conventions.md): ADR-017 field by field,
   and where auth8 differs from it
 
@@ -126,10 +126,11 @@ Every document has `_id` (internal), `cuid` (public id, unique), `ulid` (cursor)
 
 ### Tenant scoping
 
-**Tenant isolation is a rule the repository must enforce.** ADR-017 section 9 says the DAL injects
-the filter, but `auth8/packages/node/src/dal` has no `tenantId` yet, so do not assume it is there.
+**The DAL injects the tenant filter** (ADR-017 section 9), so application code cannot query across
+tenants. `auth8/packages/node/src/dal` has no `tenantId` yet, so do not assume it is there.
 
-- Every read and write of a tenant-dependent collection goes through one `scoped()` method.
+- Every read and write of a tenant-dependent collection goes through the base repository's
+  `scoped()`.
 - It takes `tenantId` from the authenticated context, never from the request body.
 - It throws when the tenant is missing. With `ignoreUndefined: true`, which auth8 sets, an
   `undefined` value **vanishes from the filter** and the query runs across all tenants.
@@ -175,20 +176,20 @@ export const toDalError = (error: unknown): unknown => {
     return new DuplicateKeyError(Object.keys(keyPattern ?? {}), options);
   }
   if (error.code === DOCUMENT_VALIDATION) {
-    return new DalError('Document rejected by the validator', 'DAL_VALIDATION', options);
+    return new DalError('Document rejected by the validator', 'ALX_ERR_DAL_VALIDATION', options);
   }
   const isTimeout = error.code === MAX_TIME_EXPIRED || error.name === 'MongoOperationTimeoutError';
-  if (isTimeout) return new DalError('Database timeout', 'DAL_TIMEOUT', options);
+  if (isTimeout) return new DalError('Database timeout', 'ALX_ERR_DAL_TIMEOUT', options);
   if (UNAVAILABLE.has(error.name)) {
-    return new DalError('Database unavailable', 'DAL_UNAVAILABLE', options);
+    return new DalError('Database unavailable', 'ALX_ERR_DAL_UNAVAILABLE', options);
   }
-  return new DalError('Database operation failed', 'DAL_ERROR', options);
+  return new DalError('Database operation failed', 'ALX_ERR_DAL', options);
 };
 
 export class DalError extends Error {
   readonly code: string;
 
-  constructor(message: string, code = 'DAL_ERROR', options?: ErrorOptions) {
+  constructor(message: string, code = 'ALX_ERR_DAL', options?: ErrorOptions) {
     super(message, options);
     this.name = new.target.name;
     this.code = code;
@@ -199,26 +200,26 @@ export class DuplicateKeyError extends DalError {
   readonly fields: string[];
 
   constructor(fields: string[], options?: ErrorOptions) {
-    super('Duplicate key', 'DAL_DUPLICATE_KEY', options);
+    super('Duplicate key', 'ALX_ERR_DAL_DUPLICATE_KEY', options);
     this.fields = fields;
   }
 }
 
 export class DocumentNotFoundError extends DalError {
   constructor(collection: string) {
-    super(`Document not found in ${collection}`, 'DAL_NOT_FOUND');
+    super(`Document not found in ${collection}`, 'ALX_ERR_DAL_NOT_FOUND');
   }
 }
 
 export class ConcurrentUpdateError extends DalError {
   constructor(collection: string) {
-    super(`Concurrent update in ${collection}`, 'DAL_CONFLICT');
+    super(`Concurrent update in ${collection}`, 'ALX_ERR_DAL_CONFLICT');
   }
 }
 
 export class InvalidQueryError extends DalError {
   constructor(message: string) {
-    super(message, 'DAL_INVALID_QUERY');
+    super(message, 'ALX_ERR_DAL_INVALID_QUERY');
   }
 }
 
@@ -226,21 +227,21 @@ export class DocumentValidationError extends DalError {
   readonly issues: unknown;
 
   constructor(issues: unknown) {
-    super('Document does not match its schema', 'DAL_VALIDATION');
+    super('Document does not match its schema', 'ALX_ERR_DAL_VALIDATION');
     this.issues = issues;
   }
 }
 
 export class TransactionError extends DalError {
   constructor(options?: ErrorOptions) {
-    super('Transaction failed after retries', 'DAL_TRANSACTION', options);
+    super('Transaction failed after retries', 'ALX_ERR_DAL_TRANSACTION', options);
   }
 }
 ```
 
 `DuplicateKeyError.fields` names the unique key from `keyPattern`. Do not copy `keyValue`: it holds
-the user's data. Map `DuplicateKeyError` and `ConcurrentUpdateError` to 409, `DocumentNotFoundError`
-to 404, `DAL_UNAVAILABLE` to 503 and `DAL_TIMEOUT` to 504.
+the user's data. Map `ALX_ERR_DAL_DUPLICATE_KEY` and `ALX_ERR_DAL_CONFLICT` to 409,
+`ALX_ERR_DAL_NOT_FOUND` to 404, `ALX_ERR_DAL_UNAVAILABLE` to 503 and `ALX_ERR_DAL_TIMEOUT` to 504.
 
 ### Transactions
 
@@ -290,8 +291,9 @@ if (result.matchedCount === 0) throw new ConcurrentUpdateError('Orders');
 
 - Check `matchedCount`, not `modifiedCount`.
 - Validate `rev` as an integer. An `undefined` guard vanishes from the filter like any other value.
-- The guard is a choice per write. The **bump is universal**: a write that does not increment `rev`
-  is invisible to a background migration, which can then overwrite it.
+- `rev` is on every document, but **not every write bumps it** (ADR-017 section 14): the guard is
+  a choice per aggregate, and a single atomic operator (`$inc`) or an append-only collection needs
+  none. Bump it on writes to fields a background migration rewrites: its guard sees only `rev`.
 - `@alexify/migronaut/versioning` has `updateWithRevision`, `retryOnConflict` and `bumpRevision`. It
   defaults to other field names, so always pass `revisionField: 'rev'`, and `field: 'v'` in a
   `versioning` block.
@@ -336,6 +338,10 @@ cursor then skips or repeats documents. A full version is `list()` in `reference
 for validators and `@alexify/metaschema/mongodb` for `toDocument`, `fromDocument`, `checkUpdate`,
 `toUpdate` and `indexesOf`. `@alexify/migronaut` applies them with `converge` and runs migrations.
 
+A shape migration (a new `v`) runs out of band, never on read: as the BullMQ job of ADR-017 section
+13, or as a migronaut background migration. migronaut keeps the indexes and validators either way
+(`references/schema-migrations.md`).
+
 A `versioning` block refuses a validator that constrains `v` or `rev`. Remove both from the
 generated schema first (`references/schema-migrations.md`).
 
@@ -347,7 +353,9 @@ generated schema first (`references/schema-migrations.md`).
 - Wrapping driver errors inside a transaction callback, or a second retry loop around it.
 - A transaction callback that sends email, calls HTTP or runs statements in `Promise.all`.
 - `modifiedCount === 0` read as a conflict.
-- A write to a versioned collection that does not bump `rev`.
+- An OCC write without the `rev` guard, or a write that skips the bump on fields a background
+  migration rewrites.
+- Shape migration on read as the default.
 - `skip` for deep pagination, or `countDocuments` on every page.
 - An index with no query, or a compound index that does not start with `tenantId`.
 - `_id` in an API or as a reference.
@@ -365,10 +373,12 @@ generated schema first (`references/schema-migrations.md`).
 - [ ] Transactions are short, pass the session everywhere and have no external side effects.
 - [ ] Labelled errors reach `session.withTransaction` unchanged.
 - [ ] `11000` maps to `DuplicateKeyError`, and no key value reaches a client.
-- [ ] Every write stamps `updatedAt`, `updatedBy` and bumps `rev`. `createdAt` stays.
+- [ ] Every write stamps `updatedAt` and `updatedBy`, and `createdAt` stays.
+- [ ] OCC writes guard and bump `rev`.
 - [ ] Lists use keyset pagination on `ulid` with a capped `limit`.
 - [ ] Every query has an index, and every index has a query.
 - [ ] The validator and indexes are generated from metaschema and applied by migronaut.
+- [ ] Shape migrations run out of band: a BullMQ job or a migronaut background migration.
 - [ ] Soft delete, erasure and TTL are decided per collection.
 
 Related skills: `alexis-libraries`, `js-contracts-schemas`, `error-handling`,

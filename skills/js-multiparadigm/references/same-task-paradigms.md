@@ -33,6 +33,8 @@ Explicit data, explicit mutation. Fits scripts and small utilities. Rules
 that guard state belong in an aggregate instead.
 
 ```js
+const { DomainError } = require('./errors.js');
+
 const validatePoint = (x, y) => {
   const errors = [];
   if (!Number.isFinite(x)) errors.push(new TypeError(`Invalid x: ${x}`));
@@ -44,7 +46,7 @@ const createPoint = (x, y) => {
   const errors = validatePoint(x, y);
   if (errors.length > 0) {
     const cause = new AggregateError(errors, 'Validation');
-    throw new RangeError('Bad coordinates', { cause });
+    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Bad coordinates', cause });
   }
   return { x, y };
 };
@@ -63,9 +65,11 @@ move(c1, -5, 10);
 console.log(toString(c1));
 ```
 
-The validation shape (collect errors, throw `RangeError` with an
-`AggregateError` cause) is the same in every variant; the rest of this file
-omits it for brevity.
+The validation shape (collect errors, throw a `DomainError` with the code
+`ALX_ERR_VALIDATION` and an `AggregateError` cause; the class is the one in
+`error-handling`) is the same in every variant; the rest of this file omits it
+for brevity. Invalid input is an expected outcome, not a bug, so it carries a
+code the boundary maps.
 
 ## OOP: class with private fields
 

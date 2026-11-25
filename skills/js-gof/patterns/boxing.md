@@ -11,7 +11,7 @@ Example: [examples/boxing.js](../examples/boxing.js) (`AddressString`, `SpeedVal
 
 **Applicability** — **Use** for domain nouns (money, email, units). **Avoid** boxing every string—cost is ergonomics and serialization boundaries.
 
-**Invariants** — Constructor enforces validity; `valueOf` / `toString` keep interop with APIs expecting primitives where safe.
+**Invariants** — Constructor enforces validity and throws an error with a `code` (`ValueError` in the example), since invalid input is not a bug; `valueOf` / `toString` keep interop with APIs expecting primitives where safe.
 
 **JS implementation** — Private fields + getters; unit normalization as in `SpeedValue`. See the example.
 

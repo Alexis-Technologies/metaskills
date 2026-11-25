@@ -129,11 +129,13 @@ module.exports = { users };
 
 ```js
 // domain/getUser.js - transport-agnostic, receives explicit context
+const { DomainError } = require('./errors.js');
+
 const ID_PATTERN = /^[a-z0-9]{8,32}$/;
 
 const getUser = async ({ id }, { users }) => {
   if (typeof id !== 'string' || !ID_PATTERN.test(id)) {
-    throw Object.assign(new Error('Invalid id'), { code: 'EVALIDATION' });
+    throw new DomainError('ALX_ERR_VALIDATION', { message: 'Invalid id' });
   }
   return users.findById(id);
 };
@@ -154,16 +156,17 @@ exports.handler = async (event) => {
   const context = Object.freeze({ users, requestId });
   try {
     const user = await getUser({ id }, context);
-    const statusCode = user ? 200 : 404;
-    return { statusCode, body: JSON.stringify(user) };
+    if (user) return { statusCode: 200, body: JSON.stringify(user) };
+    const notFound = { code: 'ALX_ERR_NOT_FOUND', message: 'User not found' };
+    return { statusCode: 404, body: JSON.stringify({ error: notFound }) };
   } catch (error) {
-    if (error.code === 'EVALIDATION') {
-      const body = JSON.stringify({ code: error.code, error: error.message });
+    if (error.code === 'ALX_ERR_VALIDATION') {
+      const body = JSON.stringify({ error: { code: error.code, message: error.message } });
       return { statusCode: 400, body };
     }
     console.error({ requestId, error });
-    const body = JSON.stringify({ code: 'EINTERNAL', requestId });
-    return { statusCode: 500, body };
+    const internal = { code: 'ALX_ERR_INTERNAL', message: 'Internal error', requestId };
+    return { statusCode: 500, body: JSON.stringify({ error: internal }) };
   }
 };
 ```

@@ -195,15 +195,18 @@ await app.register(AutoLoad, {
 ```json
 {
   "imports": {
-    "#app": "./src/app.ts",
-    "#shared/*": "./src/shared/*",
-    "#modules/*": "./src/modules/*/index.ts"
+    "#app": { "source": "./src/app.ts", "default": "./dist/app.js" },
+    "#shared/*": { "source": "./src/shared/*", "default": "./dist/shared/*" },
+    "#modules/*": { "source": "./src/modules/*/index.ts", "default": "./dist/modules/*/index.js" }
   }
 }
 ```
 
-Node.js, `tsc` with `moduleResolution: nodenext` and Vitest resolve these
-`package.json` imports with no extra configuration.
+Node.js resolves these `package.json` imports to the build in `dist/`. `tsc`
+with `moduleResolution: nodenext` and `customConditions: ["source"]`, and Vitest
+with `ssr.resolve.conditions: ['source']`, resolve them to the TypeScript
+([example-app.md](example-app.md)). Specifiers end in `.js`:
+`#shared/app/access.js`, `./accounts.service.js`.
 
 - Relative imports stay inside the module.
 - Everything outside it comes through `#shared/...` or `#modules/<name>`.
@@ -285,7 +288,7 @@ only one `no-restricted-imports` applies to a file, and a later override wins.
 ```
 
 oxlint has no `import/no-restricted-paths`, and a pattern cannot tell
-`../../domain/x.ts` inside a module from `../../billing/x.ts` in the next one.
+`../../domain/x.js` inside a module from `../../billing/x.js` in the next one.
 The module boundary is a test that resolves every relative import:
 
 ```ts
@@ -326,8 +329,8 @@ describe('module boundaries', () => {
 });
 ```
 
-It reports `../../accounts/app/accounts.service.ts`, `../../../app.ts` and
-`#modules/accounts/app/accounts.service.ts`, and accepts `#modules/accounts`.
+It reports `../../accounts/app/accounts.service.js`, `../../../app.js` and
+`#modules/accounts/app/accounts.service.js`, and accepts `#modules/accounts`.
 
 ## Delete, extract, share
 

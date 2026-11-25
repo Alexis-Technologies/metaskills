@@ -46,7 +46,7 @@ const SignUp = new Schema('SignUp', {
 
 | Syntax | Meaning |
 | --- | --- |
-| `'string'`, `'number'`, `'integer'`, `'boolean'`, `'bigint'`, `'date'`, `'bytes'`, `'json'`, `'any'` | scalars |
+| `'string'`, `'number'`, `'integer'`, `'bigint'`, `'boolean'`, `'date'`, `'bytes'`, `'null'`, `'any'`, `'unknown'`, `'json'` | scalars, the full list of 3.4.1 |
 | `'?string'`, `'key?': 'string'` | optional, accepts `null` and an absent key |
 | `{ type: 'string', nullable: true }` | required, accepts `null` |
 | `{ enum: [...] }`, `{ flags: [...] }` | enumeration, named booleans |
@@ -54,6 +54,10 @@ const SignUp = new Schema('SignUp', {
 | `{ union: [A, B], discriminator: 'type' }` | union |
 | `length`, `min`, `max`, `pattern`, `format`, `decimals`, `default` | rules and annotations |
 | `validate`, `parse`, `serialize` | a custom rule, a decoder, an encoder |
+
+The scalars are checked against `ScalarName` of `index.d.ts` 3.4.1, in its order. `'null'` accepts
+`null` only. `'any'` and `'unknown'` are one type under two names and differ only in the TypeScript
+they render.
 
 Kinds are the first key of a model entity. Stored, with an id: `Entity`, `Registry`, `Dictionary`,
 `Journal`, `Details`, `Relation`, `View`. Memory: `Struct`, `Scalar`, `Form`, `Projection`.

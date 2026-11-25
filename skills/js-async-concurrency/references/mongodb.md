@@ -20,7 +20,7 @@ is one document: then the first two rows cover most of the code.
 const reserveSeat = async (events, cuid) => {
   const filter = { cuid, seatsLeft: { $gt: 0 } };
   const result = await events.updateOne(filter, { $inc: { seatsLeft: -1 } });
-  if (result.matchedCount === 0) throw new DomainError('ESOLDOUT');
+  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_SOLD_OUT');
 };
 ```
 
@@ -36,15 +36,15 @@ const reserveSeat = async (events, cuid) => {
 Use it when the new value comes from domain logic that cannot be a filter.
 
 ```js
-const isConflict = (error) => error.code === 'ECONFLICT';
+const isConflict = (error) => error.code === 'ALX_ERR_CONFLICT';
 
 const withdrawOnce = async (accounts, cuid, amount) => {
   const account = await accounts.findOne({ cuid });
-  if (account === null) throw new DomainError('ENOTFOUND');
+  if (account === null) throw new DomainError('ALX_ERR_NOT_FOUND');
   const balance = debit(account, amount);
   const update = { $set: { balance }, $inc: { rev: 1 } };
   const result = await accounts.updateOne({ cuid, rev: account.rev }, update);
-  if (result.matchedCount === 0) throw new DomainError('ECONFLICT');
+  if (result.matchedCount === 0) throw new DomainError('ALX_ERR_CONFLICT');
   return balance;
 };
 
@@ -53,8 +53,8 @@ const withdraw = async (accounts, cuid, amount) => {
   try {
     return await retry(attempt, { attempts: 5, delayMs: 20, isRetryable: isConflict });
   } catch (error) {
-    if (error instanceof AggregateError) throw new DomainError('ECONFLICT', { cause: error });
-    throw error;
+    if (!(error instanceof AggregateError)) throw error;
+    throw new DomainError('ALX_ERR_CONFLICT', { cause: error });
   }
 };
 ```
@@ -78,7 +78,7 @@ const runOnce = async (operations, key, run) => {
   try {
     await operations.insertOne({ key, status: 'started' });
   } catch (error) {
-    if (error.code !== 'DAL_DUPLICATE_KEY') throw error;
+    if (error.code !== 'ALX_ERR_DAL_DUPLICATE_KEY') throw error;
     return operations.findOne({ key });
   }
   const result = await run();
@@ -90,7 +90,7 @@ const runOnce = async (operations, key, run) => {
 - The unique index on `key` is the lock: of two concurrent calls, one insert
   wins and the other gets a duplicate key error.
 - The DAL maps the driver's code `11000` to `DuplicateKeyError` with the code
-  `DAL_DUPLICATE_KEY`. Branch on the code, never on the message.
+  `ALX_ERR_DAL_DUPLICATE_KEY`. Branch on the code, never on the message.
 - A record stuck in `started` means the owner crashed or is still running.
   Answer 409 and let a TTL index (ADR-017 §4) or a job clear it.
 - Concurrent upserts on one unique key can also fail with a duplicate key
@@ -109,7 +109,7 @@ await withTransaction(client, async (session) => {
 (`packages/node/src/dal/session/transaction.ts`). It starts a session, runs
 `session.withTransaction`, retries the unit of work on the
 `TransientTransactionError` label, and ends the session in `finally`. When the
-retries run out it throws `TransactionError` (`DAL_TRANSACTION`).
+retries run out it throws `TransactionError` (`ALX_ERR_DAL_TRANSACTION`).
 
 - Pass `{ session }` to every call. A call without it runs outside the
   transaction and is not rolled back.

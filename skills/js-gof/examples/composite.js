@@ -1,9 +1,11 @@
 const calculateTotal = (order) => {
   const items = Array.isArray(order) ? order : Object.values(order);
-  return items.reduce((sum, item) => {
-    if (typeof item.price === 'number') return sum + item.price;
-    return sum + calculateTotal(item);
-  }, 0);
+  let total = 0;
+  for (const item of items) {
+    if (typeof item.price === 'number') total += item.price;
+    else total += calculateTotal(item);
+  }
+  return total;
 };
 
 const json = `{

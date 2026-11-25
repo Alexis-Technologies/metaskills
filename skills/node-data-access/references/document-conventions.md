@@ -8,13 +8,14 @@ collection or review one.
 | Topic | ADR-017 | Target | auth8 today |
 | --- | --- | --- | --- |
 | Schema source | TypeBox | `@alexify/metaschema` | TypeBox |
-| System fields | double-underscore names | `v`, `rev` | not stamped by the DAL |
-| Tenant filter (section 9) | "the DAL injects it" | the repository must enforce it | `packages/node/src/dal` has no `tenantId` |
-| Collection names (section 17) | PascalCase plural | PascalCase plural for new collections | `users`, `userSessions` |
+| System fields (sections 13, 14) | `v`, `rev` | as in the ADR | not stamped by the DAL |
+| Tenant filter (section 9) | the DAL injects it | as in the ADR: the base repository's `scoped()` | `packages/node/src/dal` has no `tenantId` |
+| Collection names (section 17) | PascalCase plural: `UserLogs` | as in the ADR | `users`, `userSessions` |
 | System actors (section 3) | `systemActor()` in `packages/enums` | as in the ADR | not in the code yet |
+| Shape migrations (section 13) | a BullMQ job | the job, or a migronaut background migration | none yet |
 
 Do not describe a row of the last column as done. When you touch that code, move it toward the
-target and keep existing collection names until a migration renames them.
+target. An existing collection keeps its name until a migration renames it.
 
 ## Fields of every document
 
@@ -25,22 +26,38 @@ target and keep existing collection names until a migration renames them.
 | `ulid` | string | Sort key and pagination cursor |
 | `tenantId` | string | The owner's `cuid`, on every tenant-dependent collection |
 | `v` | int32 | Shape version, set from the current declaration |
-| `rev` | int32 or int64 | Revision, incremented by every write |
+| `rev` | int32 or int64 | Revision for optimistic concurrency, bumped by the writes that use it |
 | `createdAt`, `updatedAt` | Date, UTC | `createdAt` never changes |
 | `createdBy`, `updatedBy` | string | User `cuid` or `sys:type:name`. `createdBy` never changes |
 | `deletedAt` | Date or null | Soft delete, where the collection uses it |
 
 ## Actors
 
-A user write stores the user's `cuid`, never `_id`. A system write stores `sys:${type}:${name}`:
+A user write stores the user's `cuid`, never `_id`. A system write stores `sys:${type}:${name}`,
+both parts from `as const` objects in `packages/enums`:
 
 ```ts
-export const ActorType = { Job: 'job', Scheduler: 'scheduler', Migration: 'migration' } as const;
+export const ActorType = {
+  Job: 'job',
+  Service: 'service',
+  Scheduler: 'scheduler',
+  Migration: 'migration',
+  Webhook: 'webhook',
+  System: 'system',
+} as const;
 export type ActorType = (typeof ActorType)[keyof typeof ActorType];
 
-export const systemActor = (type: ActorType, name: string): string => `sys:${type}:${name}`;
+// One entry per known system actor.
+export const Actor = {
+  AuditLogRollup: 'audit-log-rollup',
+  SessionCleanup: 'session-cleanup',
+} as const;
+export type Actor = (typeof Actor)[keyof typeof Actor];
 
-// systemActor(ActorType.Job, 'audit-log-rollup') === 'sys:job:audit-log-rollup'
+// The only way to build a system actor string.
+export const systemActor = (type: ActorType, name: Actor): string => `sys:${type}:${name}`;
+
+// systemActor(ActorType.Job, Actor.AuditLogRollup) === 'sys:job:audit-log-rollup'
 ```
 
 Pass the actor through the service in the repository context. Do not read it from a global.

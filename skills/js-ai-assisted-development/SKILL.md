@@ -226,11 +226,11 @@ describe('generateId', () => {
     sample = Array.from({ length: SAMPLE_SIZE }, generateId);
   });
 
-  it('returns 24 url-safe chars', () => {
+  it('should return 24 url-safe chars', () => {
     for (const id of sample) assert.match(id, /^[\w-]{24}$/);
   });
 
-  it('has no collisions', () => {
+  it('should have no collisions', () => {
     assert.equal(new Set(sample).size, SAMPLE_SIZE);
   });
 });

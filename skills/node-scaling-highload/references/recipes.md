@@ -218,15 +218,16 @@ const isOverloaded = () => {
 
 setInterval(() => loopDelay.reset(), 10_000).unref();
 
-const probes = new Map([
-  ['/health/live', () => 200],
-  ['/health/ready', () => (state.draining || isOverloaded() ? 503 : 200)],
-]);
+const probes = {
+  __proto__: null,
+  '/health/live': () => 200,
+  '/health/ready': () => (state.draining || isOverloaded() ? 503 : 200),
+};
 
 const work = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const server = http.createServer(async (req, res) => {
-  const probe = probes.get(req.url);
+  const probe = probes[req.url];
   if (probe) return void res.writeHead(probe()).end();
   if (state.draining || isOverloaded()) {
     res.writeHead(503, { 'Retry-After': '1', Connection: 'close' });
@@ -389,9 +390,9 @@ export const planRoutes = async (fastify: FastifyInstance) => {
     const ageMs = lastGood === null ? Infinity : Date.now() - lastGood.at;
     if (lastGood === null || ageMs > STALE_MAX_MS) {
       reply.code(503).header('retry-after', '5');
-      return { code: 'EUNAVAILABLE', message: 'Service is busy' };
+      return { error: { code: 'ALX_ERR_UNAVAILABLE', message: 'Service is busy' } };
     }
-    reply.header('age', String(Math.floor(ageMs / 1000)));
+    reply.header('age', `${Math.floor(ageMs / 1000)}`);
     return lastGood.body;
   };
 

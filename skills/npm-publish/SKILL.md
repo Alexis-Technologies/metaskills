@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # npm Publish Preparation
 
-Systematic workflow for preparing an @alexify package for a new release. Every step must pass before proceeding to the next. The package manager is pnpm (pinned in `packageManager`); never use `npm` commands and never create `package-lock.json`.
+Systematic workflow for preparing an @alexify package for a new release. Every step must pass before proceeding to the next. The package manager is pnpm (pinned in `packageManager`); never use `npm` or `npx` commands outside the temporary consumer project of the tarball smoke test (Step 6c), and never create `package-lock.json`.
 
 ## Step 0: Gather Release Intent
 
@@ -56,9 +56,9 @@ The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - **Sections**: `## [Unreleased]` at top; `## [X.Y.Z] - YYYY-MM-DD` for releases (date in ISO 8601)
 - **Order**: newest first; every version gets an entry
 - **Release body**: a short prose paragraph saying what the release is about, then subsections
-- **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`, plus `Tooling` and `Upgrading from X.Y` when they apply. Omit empty subsections
-- **Entries**: bullets starting with a **bold lead-in**, then the explanation; human-readable and curated (no raw git diffs); call out breaking changes clearly
-- **Links**: reference-style link block at the bottom: `[unreleased]: ...`, `[X.Y.Z]: ...`
+- **Types of changes**: the six of Keep a Changelog (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`), plus `Changed (breaking)`, `Documentation`, `Upgrading from X.Y` and `Tooling` when they apply, and no other heading. Omit empty subsections
+- **Entries**: bullets starting with a **bold lead-in**, then the explanation; human-readable and curated (no raw git diffs); a breaking change goes under `Changed (breaking)`, and `Upgrading from X.Y` says what a consumer changes
+- **Links**: the reference-style link block at the bottom is required: `[unreleased]: ...`, `[X.Y.Z]: ...`, one line per version
 
 ### 3a: Detect changelog structure
 
@@ -81,7 +81,7 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 
 For the first release of the package there is no tag yet: draft from the whole history (`git log --oneline`).
 
-Commits follow Conventional Commits: map `feat` -> Added, `fix` -> Fixed, `refactor!`/`feat!`/`fix!` -> call out as breaking, `ci`/`chore` -> Tooling (only when user-visible). Merge with the existing `[Unreleased]` content.
+Commits follow Conventional Commits: map `feat` -> Added, `fix` -> Fixed, `refactor!`/`feat!`/`fix!` -> Changed (breaking), `docs` -> Documentation, `ci`/`chore` -> Tooling (only when user-visible). Merge with the existing `[Unreleased]` content.
 
 Turn `[Unreleased]` into the release and leave an empty `[Unreleased]` above it:
 
@@ -124,7 +124,7 @@ If `.d.ts` files exist:
 
 ## Step 5: README, Docs & License Review
 
-**Update the year** of the `Alexis Technologies` copyright line in `LICENSE` (e.g. `2026` -> `2026-2027`).
+**Change the year** of the `Alexis Technologies` copyright line in `LICENSE` only when the year changed since the previous release (e.g. `2026` -> `2026-2027` for the first release of 2027); otherwise leave `LICENSE` alone.
 
 Scan for staleness:
 
@@ -165,6 +165,29 @@ Run `pnpm run check:pack` too when the project has it. Review the file list:
 
 Report the file count and the packed size to the user.
 
+### 6c: Tarball smoke test
+
+`tsd` and `check:dts` read the repository, never the tarball. Before publishing, install the packed tarball in a temporary consumer project outside the repository; it is the only place where `npm` and `npx` are allowed:
+
+```bash
+pnpm pack                                    # alexify-<name>-X.Y.Z.tgz
+SMOKE=$(mktemp -d) && mv alexify-<name>-X.Y.Z.tgz "$SMOKE" && cd "$SMOKE"
+npm init -y && npm install ./alexify-<name>-X.Y.Z.tgz typescript @types/node
+node -e "require('@alexify/<name>'); require('@alexify/<name>/<subpath>')"
+node --input-type=module -e "import { a } from '@alexify/<name>'; import { b } from '@alexify/<name>/<subpath>'; void a; void b;"
+printf "import { a } from '@alexify/<name>';\nvoid a;\n" > smoke.ts
+npx tsc --moduleResolution bundler --module esnext --types node --noEmit smoke.ts
+npx <bin> --version
+node -e "try { require('@alexify/<name>/src/index.js') } catch (error) { process.exit(error.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED' ? 0 : 1) } process.exit(1)"
+```
+
+- `require` and `import` reach **every** entry of `exports`, with named imports, so cjs-module-lexer sees the names
+- `tsc` with `--moduleResolution bundler` type-checks against the shipped `.d.ts`; `--types node` is required, as since TypeScript 6 a run without a `tsconfig.json` loads no `@types` package
+- The bin, when the package has one, answers `--version` with the new version
+- A deep import fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`: the `exports` map is closed
+
+Delete the temporary directory afterwards; nothing of it goes into the repository.
+
 ## Step 7: Final Verification
 
 Run the gates of Step 1 one more time after all edits. They must exit 0. If one fails, fix and re-run.
@@ -180,6 +203,7 @@ Release preparation complete:
   Tests:    ✓ passing
   Types:    ✓ valid
   Packed:   <N> files, <size>
+  Smoke:    ✓ require, import, tsc, bin, deep import refused
 ```
 
 Then list remaining manual steps:
@@ -187,9 +211,9 @@ Then list remaining manual steps:
 1. `git add -A && git commit -m "chore(release): X.Y.Z"` on the release branch, then merge into `main` (or ask the user if they want you to commit)
 2. `git tag vX.Y.Z` on the commit of `main`
 3. `git push && git push --tags`
-4. `pnpm publish` (or `pnpm publish --tag <label>` for prereleases), or `pnpm run release` when the project has it; `prepublishOnly` re-runs the gates
+4. `pnpm publish` (or `pnpm publish --tag <label>` for prereleases), never `npm publish` or a wrapper script; `prepublishOnly` re-runs the gates
 
-Do NOT run `pnpm publish`, `pnpm run release` or `git push` automatically — always let the user do it or explicitly confirm.
+Do NOT run `pnpm publish` or `git push` automatically — always let the user do it or explicitly confirm.
 
 ## Step 9: Lockfile
 

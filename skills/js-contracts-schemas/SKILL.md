@@ -80,7 +80,7 @@ The code for every consumer is in [references/validation-chain.md](references/va
 - Reject unknown fields, which metaschema does by default, or strip them explicitly with
   `parse(value, { unknown: 'strip' })`. Never spread raw input into DB writes (mass assignment of
   `isAdmin`, `ownerId`).
-- Contract violations by callers are client errors (400, `EVALIDATION`) with a list of reasons.
+- Contract violations by callers are client errors (400, `ALX_ERR_VALIDATION`) with a list of reasons.
   Violated postconditions are server bugs (500, logged). See `error-handling`.
 
 ### Declarative over imperative
@@ -90,7 +90,7 @@ The code for every consumer is in [references/validation-chain.md](references/va
   tests.
 - A useful default shape for a method is `{ access, parameters, validate, method, returns, errors,
   timeout, queue, deprecated, examples }`. A runner checks `parameters`, calls `validate` for what a
-  schema cannot express, invokes `method` with a timeout, maps returned `DomainError` codes through
+  schema cannot express, invokes `method` with a timeout, maps thrown `DomainError` codes through
   `errors`, and checks `returns`. Field reference: [references/metaschema.md](references/metaschema.md).
 - Keep one source of truth per shape. One definition drives runtime validation, types, MongoDB
   validators and indexes, docs for consumers, and fake data for tests (`sample`). Never maintain a TS
@@ -110,7 +110,7 @@ The code for every consumer is in [references/validation-chain.md](references/va
   (`new Money(-1.5, 'usd')` throws) and in the DB (`$jsonSchema` validators, unique indexes). An object
   that exists is valid.
 - Errors are part of the contract: declare the codes a method can produce
-  (`errors: { ELIMIT: 'Daily limit exceeded' }`) so clients know what to handle. Everything else is an
+  (`errors: { ALX_ERR_LIMIT: 'Daily limit exceeded' }`) so clients know what to handle. Everything else is an
   exception mapped to a generic 500 (`error-handling`).
 
 ### Typings
@@ -159,19 +159,19 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifySchemaCompiler } from 'fastify';
 import type { Schema, ValidationIssue } from '@alexify/metaschema';
 
-const TEXT_PARTS = ['querystring', 'params', 'headers'];
+const TEXT_PARTS = new Set(['querystring', 'params', 'headers']);
 
 const toError = (issues: readonly ValidationIssue[]) => {
   const error = new Error('Validation failed') as Error & Record<string, unknown>;
   error.statusCode = 400;
-  error.code = 'EVALIDATION';
+  error.code = 'ALX_ERR_VALIDATION';
   error.validation = issues;
   return error;
 };
 
 export const metaschemaCompiler: FastifySchemaCompiler<Schema> = ({ schema, httpPart }) => {
   const part = httpPart ?? '';
-  const coerce = TEXT_PARTS.includes(part);
+  const coerce = TEXT_PARTS.has(part);
   const unknown = part === 'headers' ? 'ignore' : 'reject';
   return (data) => {
     const { valid, value, issues } = schema.parse(data, { coerce, unknown });
@@ -195,20 +195,14 @@ The same idea for a queue consumer, an RPC dispatcher or a service:
 ```js
 const { Schema } = require('@alexify/metaschema');
 
+const { DomainError } = require('./domain-error.js'); // the class of `error-handling`
+
 class ContractError extends Error {
   constructor(code, reasons) {
     super(`Contract violation: ${reasons.join('; ')}`);
     this.name = 'ContractError';
     this.code = code;
     this.reasons = reasons;
-  }
-}
-
-class DomainError extends Error {
-  constructor(code, message = code) {
-    super(message);
-    this.name = 'DomainError';
-    this.code = code;
   }
 }
 
@@ -230,24 +224,35 @@ const parseContract = (schema, value, code) => {
   return result.value;
 };
 
+const rethrow = (error, errors) => {
+  const isDeclared = error instanceof DomainError && Object.hasOwn(errors, error.code);
+  if (!isDeclared) throw error;
+  const { code, details } = error;
+  throw new DomainError(code, { message: errors[code], cause: error, details });
+};
+
 const withContract = (definition) => {
   const parameters = compile(definition.parameters);
   const returns = compile(definition.returns);
   const { validate = null, method, errors = {} } = definition;
-  return async (args, context) => {
-    const input = parseContract(parameters, args, 'EVALIDATION');
-    if (validate) await validate(input);
-    const result = await method(input, context);
-    if (result instanceof DomainError) {
-      throw new DomainError(result.code, errors[result.code]);
+  const call = async (input, context) => {
+    try {
+      return await method(input, context);
+    } catch (error) {
+      rethrow(error, errors);
     }
-    return parseContract(returns, result, 'ERESULT');
+  };
+  return async (args, context) => {
+    const input = parseContract(parameters, args, 'ALX_ERR_VALIDATION');
+    if (validate) await validate(input);
+    const result = await call(input, context);
+    return parseContract(returns, result, 'ALX_ERR_RESULT');
   };
 };
 ```
 
 `withContract({ parameters: { a: 'number' }, method })({ a: 1, isAdmin: true })` rejects with
-`EVALIDATION` and the reason `has unexpected keys: isAdmin`. Match on the code, since the text of a
+`ALX_ERR_VALIDATION` and the reason `has unexpected keys: isAdmin`. Match on the code, since the text of a
 reason can change between versions.
 
 ### Value object enforces invariants

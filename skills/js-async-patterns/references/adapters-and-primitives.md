@@ -174,10 +174,7 @@ class Collector {
 
   set(key, value) {
     if (this.#done) return;
-    if (!this.#keys.has(key)) {
-      this.fail(new Error(`Unexpected key: ${key}`));
-      return;
-    }
+    if (!this.#keys.has(key)) return void this.fail(new Error(`Unexpected key: ${key}`));
     if (!Object.hasOwn(this.#data, key)) this.#count++;
     this.#data[key] = value;
     if (this.#count === this.#keys.size) {

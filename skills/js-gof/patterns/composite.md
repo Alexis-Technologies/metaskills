@@ -11,7 +11,7 @@ Example: [examples/composite.js](../examples/composite.js)
 
 **Applicability** — **Use** for trees and DAGs with shared algorithms (totals, permissions walk). **Avoid** when structure is flat or heterogeneity breaks a clean composite contract.
 
-**JS implementation** — `Array.isArray` vs object values, `reduce` + recursion; JSON trees as in the example. Watch cycles if graphs are not trees.
+**JS implementation** — `Array.isArray` vs object values, a loop + recursion; JSON trees as in the example. Watch cycles if graphs are not trees.
 
 **Consequences** — Simple client code; deep stacks on huge trees—consider iteration APIs if needed.
 

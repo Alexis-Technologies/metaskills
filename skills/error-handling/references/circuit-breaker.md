@@ -9,7 +9,7 @@ multiply its load and hold your own requests until their timeouts.
 | State | Calls | Moves to |
 | --- | --- | --- |
 | Closed | Pass through; failures are counted | Open, when failures cross the threshold |
-| Open | Rejected at once with `EUNAVAILABLE` | Half-open, after the reset delay |
+| Open | Rejected at once with `ALX_ERR_UNAVAILABLE` | Half-open, after the reset delay |
 | Half-open | One trial call passes, the rest are rejected | Closed on success, open on failure |
 
 ## Rules
@@ -21,7 +21,7 @@ multiply its load and hold your own requests until their timeouts.
 - Require a minimum volume before opening, so two failures at night do not cut a quiet service.
 - The breaker wraps the retry: `breaker.fire()` around `retry(call)`. An open-circuit error is not
   retryable.
-- When open, answer with `EUNAVAILABLE` (503 with `Retry-After`, see
+- When open, answer with `ALX_ERR_UNAVAILABLE` (503 with `Retry-After`, see
   [boundaries.md](boundaries.md)), or a fallback that is honest: a cached read, a degraded
   response. Never report a write as done.
 - A timeout of the breaker rejects the promise but does not stop the call. Give the call its own
@@ -39,7 +39,7 @@ import CircuitBreaker from 'opossum';
 
 import type { Logger } from 'pino';
 
-import type { HttpClient } from '#shared/infra/http.client.ts';
+import type { HttpClient } from '#shared/infra/http.client.js';
 
 type ChargeInput = { orderId: string; amount: number };
 type Deps = { http: HttpClient; logger: Logger };
@@ -67,7 +67,7 @@ export const createPaymentsClient = ({ http, logger }: Deps) => {
 
 - `errorFilter` returns `true` for errors that must **not** count as failures.
 - An open breaker rejects with `code === 'EOPENBREAKER'`, and its own timeout with `ETIMEDOUT`.
-  Map both to `EUNAVAILABLE` in the infra layer, so the boundary sees one code.
+  Map both to `ALX_ERR_UNAVAILABLE` in the infra layer, so the boundary sees one code.
 - Call `close` from the plugin's `onClose` hook: `shutdown()` clears the breaker's timers.
 
 ## Library: a small one
@@ -115,7 +115,7 @@ class CircuitOpenError extends Error {
   constructor(name, retryAfterMs) {
     super(`Circuit ${name} is open`);
     this.name = 'CircuitOpenError';
-    this.code = 'EUNAVAILABLE';
+    this.code = 'ALX_ERR_UNAVAILABLE';
     this.retryAfterMs = retryAfterMs;
   }
 }

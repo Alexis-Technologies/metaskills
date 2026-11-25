@@ -92,13 +92,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return; // data goes through sync
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request).catch(offline));
-    return;
+    return void event.respondWith(networkFirst(request).catch(offline));
   }
   if (url.pathname.startsWith('/avatars/')) {
     const waitUntil = (promise) => event.waitUntil(promise);
-    event.respondWith(staleWhileRevalidate(request, waitUntil));
-    return;
+    return void event.respondWith(staleWhileRevalidate(request, waitUntil));
   }
   event.respondWith(cacheFirst(request));
 });

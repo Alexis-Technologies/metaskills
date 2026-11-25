@@ -3,8 +3,8 @@ name: js-gof
 description: Creational and structural GoF patterns in JS and TS (factory, builder, singleton, pool, adapter, decorator, proxy, bridge, facade). Use when implementing one
 ---
 
-<!-- Adapted from metaskills v1.0.6 (skills/js-gof): the examples have no 'use strict' and are
-     formatted by oxfmt. -->
+<!-- Adapted from metaskills v1.0.6 (skills/js-gof): the examples have no 'use strict', are
+     formatted by oxfmt, and follow js-conventions (loops, membership Sets, coded errors). -->
 
 # GoF Patterns
 
